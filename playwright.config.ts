@@ -21,7 +21,11 @@ export default defineConfig({
     { name: "mobile", use: { ...devices["Pixel 7"] }, testMatch: /mobile\.spec\.ts/ },
   ],
   webServer: {
-    command: "node dist/migrate.js && node dist/index.js",
+    // E2E_TARGET=vercel tests the Vercel build output (.vercel/output) through a local router.
+    command:
+      process.env.E2E_TARGET === "vercel"
+        ? "node dist/migrate.js && node scripts/serve-vercel-output.mjs"
+        : "node dist/migrate.js && node dist/index.js",
     url: `http://localhost:${PORT}/ready`,
     reuseExistingServer: false,
     timeout: 60_000,
@@ -31,6 +35,7 @@ export default defineConfig({
       DATABASE_URL,
       AI_PROVIDER: "mock",
       LOG_LEVEL: "warn",
+      ...(process.env.E2E_TARGET === "vercel" ? { VERCEL: "1", RATE_LIMIT_STORE: "postgres" } : {}),
     },
   },
 });

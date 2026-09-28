@@ -16,3 +16,4 @@ vite.config.ts.*
 .cache
 playwright-report
 test-results
+.vercel

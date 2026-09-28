@@ -67,6 +67,40 @@ don't work reliably (or at all) on per-request functions without a rewrite.
 - Render free services have 512 MB RAM; `DATABASE_POOL_MAX=5` is set in `render.yaml` to stay
   well within Neon's connection limit.
 
+## Free hosting without a card: Vercel + Neon
+
+Vercel's free Hobby plan runs the API as a serverless function and serves the client from its
+CDN. `vercel.json` points Vercel at `scripts/build-vercel.mjs`, which writes the
+[Build Output API](https://vercel.com/docs/build-output-api) layout and applies database
+migrations on production builds. `npm run build` + `node dist/index.js` is unchanged for other
+hosts.
+
+1. Make sure the code you want to deploy is on the repository's default branch (`main`) —
+   Vercel deploys that branch to production.
+2. Sign in at <https://vercel.com> with GitHub → **Add New… → Project** → import the repository.
+3. Leave the framework preset as **Other** and the build settings as they are (they come from
+   `vercel.json`). Under **Environment Variables** add:
+   - `DATABASE_URL` — the Neon connection string (pooling off, ends with `sslmode=require`)
+   - `OPENAI_API_KEY`
+   - optional `CRON_SECRET` — any random string of 16+ characters; enables the daily
+     housekeeping cron (expired sessions and rate-limit rows, a notification sweep)
+4. **Deploy.** The app is live at `https://<project>.vercel.app`; `APP_URL` is derived from
+   Vercel's production URL (set it yourself only for a custom domain).
+
+How it differs from a long-running server:
+
+| Concern | On Vercel |
+|---|---|
+| Rate limits | Stored in Postgres (`rate_limit_hits`), shared by all instances — automatic when `VERCEL` is set |
+| DB connections | Pool of 3 per instance (override with `DATABASE_POOL_MAX`) |
+| "New homework" push notifications | Swept at most once a minute per instance while the app is in use, and daily by the cron. A scheduled release with nobody online notifies when the next person uses the app. The homework itself always appears on time. |
+| Migrations | Run during production builds (`VERCEL_ENV=production`); previews never migrate the database |
+| Function limits | 60 s per request, 4.5 MB request body (voice clips are capped at 3 MB) |
+| Preview deployments | Protected by Vercel Authentication by default; share the production URL with users |
+
+CI runs the whole end-to-end suite against this build output as well
+(`E2E_TARGET=vercel npm run test:e2e`, via `scripts/serve-vercel-output.mjs`).
+
 ## Build & run with Docker
 
 ```bash
@@ -117,8 +151,8 @@ NODE_ENV=production node dist/index.js
 - The app is stateless; run 2+ instances behind a load balancer for availability.
 - Background jobs (due notifications, expired sessions) run in every instance but are safe:
   notifications are claimed atomically, deletes are idempotent.
-- Rate-limit counters are per instance. With N instances effective limits are ×N; for strict
-  limits add a shared store (e.g. `rate-limit-redis`) in `server/middleware/rate-limit.ts`.
+- Rate-limit counters are per instance by default. With N instances effective limits are ×N;
+  set `RATE_LIMIT_STORE=postgres` to share them through the database (automatic on Vercel).
 - Postgres pool: `DATABASE_POOL_MAX` (default 10) per instance — keep instances × pool below the
   database's connection limit (or use a pooler such as PgBouncer / Neon pooling).
 

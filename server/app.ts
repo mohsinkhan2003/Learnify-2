@@ -14,6 +14,8 @@ import teacherRoutes from "./modules/assignments/teacher.routes";
 import studentRoutes from "./modules/tutoring/student.routes";
 import pushRoutes from "./notifications/push.routes";
 import { studentClassRoutes } from "./modules/classes/classes.routes";
+import { runMaintenance } from "./jobs";
+import { timingSafeEqual } from "crypto";
 
 /** Builds the Express app (API + security middleware). The frontend is attached by the caller. */
 export function createApp(): Express {
@@ -73,6 +75,21 @@ export function createApp(): Express {
   const api = express.Router();
   if (config.allowedOrigins.length > 0) {
     api.use(cors({ origin: config.allowedOrigins, credentials: true }));
+  }
+  // Scheduled maintenance for serverless hosts (Vercel Cron sends "Authorization: Bearer $CRON_SECRET").
+  // Registered before the rate limiter/CSRF: it is a server-to-server GET with its own secret.
+  if (config.cronSecret) {
+    const expected = Buffer.from(`Bearer ${config.cronSecret}`);
+    api.get("/internal/cron", async (req, res, next) => {
+      const given = Buffer.from(req.get("authorization") ?? "");
+      if (given.length !== expected.length || !timingSafeEqual(given, expected)) return next();
+      try {
+        await runMaintenance();
+        res.json({ ok: true });
+      } catch (error) {
+        next(error);
+      }
+    });
   }
   api.use(express.json({ limit: "64kb" }));
   api.use(cookieParser());

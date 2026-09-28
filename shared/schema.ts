@@ -277,6 +277,13 @@ export const aiUsage = pgTable(
 // Push notifications
 // ---------------------------------------------------------------------------
 
+/** Shared rate-limit counters (used when RATE_LIMIT_STORE=postgres, e.g. on Vercel). */
+export const rateLimitHits = pgTable("rate_limit_hits", {
+  key: text("key").primaryKey(),
+  hits: integer("hits").notNull(),
+  resetAt: tz("reset_at").notNull(),
+});
+
 export const pushSubscriptions = pgTable("push_subscriptions", {
   id: varchar("id")
     .primaryKey()

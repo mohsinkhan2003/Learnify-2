@@ -6,3 +6,4 @@ client/src/components/ui
 playwright-report
 test-results
 *.md
+.vercel

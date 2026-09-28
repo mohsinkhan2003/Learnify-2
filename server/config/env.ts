@@ -20,6 +20,10 @@ const envSchema = z
     CORS_ORIGINS: z.string().default(""),
     // Origins allowed to embed the app in a frame (comma-separated). Empty = no framing.
     FRAME_ANCESTORS: z.string().default(""),
+    // "memory" (single long-running process) or "postgres" (shared across serverless instances).
+    RATE_LIMIT_STORE: z.enum(["memory", "postgres"]).optional(),
+    // Bearer token Vercel Cron (or any scheduler) sends to /api/internal/cron. Unset = route disabled.
+    CRON_SECRET: z.string().min(16).optional(),
     TRUST_PROXY: z.coerce.number().int().nonnegative().default(1),
     /** Secure cookies. Defaults to true in production. */
     COOKIE_SECURE: bool.optional(),
@@ -95,9 +99,18 @@ const envSchema = z
 export type Env = z.infer<typeof envSchema>;
 
 export function loadConfig(source: NodeJS.ProcessEnv = process.env) {
-  // On Render / Hugging Face Spaces, fall back to the platform's public URL so APP_URL needn't be set by hand.
-  const platformUrl = source.RENDER_EXTERNAL_URL || (source.SPACE_HOST ? `https://${source.SPACE_HOST}` : undefined);
-  const parsed = envSchema.safeParse({ ...source, APP_URL: source.APP_URL || platformUrl || undefined });
+  // On Render / Vercel / Hugging Face Spaces, fall back to the platform's public URL so APP_URL
+  // needn't be set by hand.
+  const https = (host?: string) => (host ? `https://${host}` : undefined);
+  const serverless = !!source.VERCEL;
+  const platformUrl = source.RENDER_EXTERNAL_URL || https(source.VERCEL_PROJECT_PRODUCTION_URL) || https(source.SPACE_HOST);
+  const parsed = envSchema.safeParse({
+    ...source,
+    APP_URL: source.APP_URL || platformUrl || undefined,
+    // Many small instances: keep each pool small and share rate-limit state through the database.
+    DATABASE_POOL_MAX: source.DATABASE_POOL_MAX || (serverless ? "3" : undefined),
+    RATE_LIMIT_STORE: source.RATE_LIMIT_STORE || (serverless ? "postgres" : undefined),
+  });
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`).join("\n");
     throw new Error(`Invalid environment configuration:\n${issues}`);
@@ -114,7 +127,15 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env) {
     logLevel: env.LOG_LEVEL ?? (env.NODE_ENV === "test" ? "silent" : isProduction ? "info" : "debug"),
     database: { url: env.DATABASE_URL, poolMax: env.DATABASE_POOL_MAX },
     appOrigin,
-    allowedOrigins: [appOrigin, ...env.CORS_ORIGINS.split(",").map((o) => o.trim())].filter((o): o is string => !!o),
+    allowedOrigins: [
+      appOrigin,
+      // A Vercel deployment's own URLs (preview / branch) are same-app origins.
+      https(source.VERCEL_URL),
+      https(source.VERCEL_BRANCH_URL),
+      ...env.CORS_ORIGINS.split(",").map((o) => o.trim()),
+    ].filter((o): o is string => !!o),
+    rateLimitStore: env.RATE_LIMIT_STORE ?? "memory",
+    cronSecret: env.CRON_SECRET,
     trustProxy: env.TRUST_PROXY,
     frameAncestors: env.FRAME_ANCESTORS.split(",")
       .map((o) => o.trim())

@@ -1,17 +1,20 @@
 import type { Request } from "express";
 import { rateLimit, ipKeyGenerator, type Options } from "express-rate-limit";
 import { config } from "../config/env";
+import { PgRateLimitStore } from "./pg-rate-limit-store";
 
 /**
  * Per-endpoint limits sized to each endpoint's cost and abuse risk.
- * State is in-process: correct for a single instance. For several instances, plug a shared
- * store (e.g. rate-limit-redis) into `store` below.
+ * State is in-process by default (correct for one long-running instance). With
+ * RATE_LIMIT_STORE=postgres (automatic on Vercel) counters are shared through the database;
+ * if the database is unreachable the limiter lets requests through rather than failing them.
  */
 function limiter(name: string, windowMs: number, limit: number, keyBy: "ip" | "user" | "ip+email" = "ip") {
   const options: Partial<Options> = {
     windowMs,
     limit,
     standardHeaders: "draft-7",
+    ...(config.rateLimitStore === "postgres" ? { store: new PgRateLimitStore(), passOnStoreError: true } : {}),
     legacyHeaders: false,
     // Tests exercise limits explicitly via ENABLE_RATE_LIMITS_IN_TEST.
     skip: () => config.isTest && process.env.ENABLE_RATE_LIMITS_IN_TEST !== "1",

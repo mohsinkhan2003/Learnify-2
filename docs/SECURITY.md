@@ -21,8 +21,9 @@ claims** — see "Needs legal/privacy review" at the end.
   fixed relative redirects are used (no open redirect).
 - **Rate limits:** login (10 / 15 min per IP+email, 50 per IP), signup (20 / h per IP), OAuth,
   tutor turns (12 / min / user), transcription (12 / min / user), push (30 / h / user),
-  analytics (60 / min / user), global API ceiling (300 / min / IP). State is in-process — use a
-  shared store (e.g. Redis) when running several instances.
+  analytics (60 / min / user), global API ceiling (300 / min / IP). State is in-process by default;
+  `RATE_LIMIT_STORE=postgres` (automatic on Vercel) shares it across instances and fails open
+  if the database is unreachable.
 
 ## Authorization
 

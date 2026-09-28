@@ -234,7 +234,7 @@ All variables are documented in [`.env.example`](../.env.example) and validated 
 | Voice was tested only with a fake microphone in headless Chromium | Test on real devices: iOS Safari, Android Chrome, Chromebooks, Firefox (recorder fallback) |
 | Push delivery wasn't tested end to end (needs VAPID keys and real browsers) | Test subscription → notification → click on Android and desktop; iOS needs Home-Screen install |
 | Google OAuth was tested only up to the Google redirect | Run the full flow with real credentials in staging |
-| Rate limits live in each process | Add a Redis store if you run several instances and need exact limits |
+| Rate limits live in each process by default | Set `RATE_LIMIT_STORE=postgres` when running several instances (automatic on Vercel) |
 | Teacher overview loads progress for up to 200 active assignments in memory | Fine for schools with hundreds of students; move to SQL aggregates if much larger |
 | Moderation fails open when OpenAI moderation is down | Decide the safeguarding policy (fail-closed is a one-line change) |
 | No error-tracking service | Add Sentry (or similar) hooks in the error handler and the error boundary if wanted |

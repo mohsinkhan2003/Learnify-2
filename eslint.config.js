@@ -4,11 +4,11 @@ import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 
 export default tseslint.config(
-  { ignores: ["dist", "node_modules", "migrations", "client/src/components/ui", "playwright-report", "test-results"] },
+  { ignores: ["dist", ".vercel", "node_modules", "migrations", "client/src/components/ui", "playwright-report", "test-results"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["server/**/*.ts", "shared/**/*.ts", "tests/**/*.ts", "e2e/**/*.ts", "*.config.{ts,js}"],
+    files: ["server/**/*.ts", "shared/**/*.ts", "tests/**/*.ts", "e2e/**/*.ts", "scripts/**/*.mjs", "*.config.{ts,js}"],
     languageOptions: { globals: globals.node },
   },
   {
@@ -29,7 +29,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["server/db/migrate-cli.ts", "tests/**/*.ts", "e2e/**/*.ts"],
+    files: ["server/db/migrate-cli.ts", "tests/**/*.ts", "e2e/**/*.ts", "scripts/**/*.mjs"],
     rules: { "no-console": "off" },
   },
 );

@@ -79,6 +79,11 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      # Same suite against the Vercel build output (serverless function + static CDN routing).
+      - run: node scripts/build-vercel.mjs
+      - run: npm run test:e2e
+        env:
+          E2E_TARGET: vercel
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

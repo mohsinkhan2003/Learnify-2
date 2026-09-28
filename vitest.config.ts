@@ -23,6 +23,7 @@ export default defineConfig({
       CORS_ORIGINS: "http://test.local",
       VAPID_PUBLIC_KEY: "",
       VAPID_PRIVATE_KEY: "",
+      CRON_SECRET: "test-cron-secret-0123456789",
     },
   },
 });
