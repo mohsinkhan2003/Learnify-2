@@ -1,55 +1,21 @@
 {
-  "name": "Learnify - Interactive Learning Platform",
+  "name": "Learnify — AI homework tutor",
   "short_name": "Learnify",
-  "description": "AI-powered tutoring system for interactive learning",
-  "start_url": "/",
-  "scope": "/",
+  "description": "Homework with a patient, voice-first AI tutor.",
   "id": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "fullscreen"],
-  "background_color": "#0ea5e9",
-  "theme_color": "#0ea5e9",
-  "orientation": "portrait-primary",
-  "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
-  ],
-  "categories": ["education", "productivity"],
-  "prefer_related_applications": false,
-  "shortcuts": [
-    {
-      "name": "Dashboard",
-      "short_name": "Dashboard",
-      "description": "Go to your dashboard",
-      "url": "/dashboard",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
-    }
-  ],
-  "screenshots": [],
-  "iarc_rating_id": "",
-  "related_applications": [],
+  "background_color": "#fbfaf8",
+  "theme_color": "#fbfaf8",
   "lang": "en",
-  "dir": "ltr"
+  "dir": "ltr",
+  "categories": ["education"],
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [{ "name": "My homework", "url": "/student", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }]
 }

@@ -92,6 +92,11 @@ router.post(
   }),
 );
 
+/** Session probe for the SPA: always 200, `user` is null when signed out. */
+router.get("/session", (req, res) => {
+  res.json({ user: req.user ? toPublicUser(req.user) : null });
+});
+
 router.get("/me", requireAuth, (req, res) => {
   res.json(toPublicUser(currentUser(req)));
 });

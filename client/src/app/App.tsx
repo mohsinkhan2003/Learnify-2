@@ -1,0 +1,142 @@
+import { lazy, Suspense } from "react";
+import { Redirect, Route, Switch, useParams } from "wouter";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { RefreshCw } from "lucide-react";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { FullPageSpinner } from "@/components/common/states";
+import { StudentShell, TeacherShell } from "@/components/layout/shells";
+import { homePathFor, useAuth } from "@/features/auth/use-auth";
+import { useServiceWorkerUpdate } from "@/features/pwa/service-worker";
+import { queryClient } from "@/lib/query";
+import { ErrorBoundary } from "./error-boundary";
+import { RedirectIfSignedIn, RequireRole } from "./guards";
+import { ThemeProvider } from "./theme";
+
+// Route-level code splitting: teachers never download the tutor, students never download analytics.
+const LandingPage = lazy(() => import("@/features/auth/landing-page"));
+const LoginPage = lazy(() => import("@/features/auth/login-page"));
+const SignupPage = lazy(() => import("@/features/auth/signup-page"));
+const GoogleCompletePage = lazy(() => import("@/features/auth/signup-page").then((m) => ({ default: m.GoogleCompletePage })));
+const TeacherOverviewPage = lazy(() => import("@/features/teacher/overview-page"));
+const AssignmentsPage = lazy(() => import("@/features/teacher/assignments-page"));
+const NewAssignmentPage = lazy(() => import("@/features/teacher/new-assignment-page"));
+const AssignmentDetailPage = lazy(() => import("@/features/teacher/assignment-detail-page"));
+const StudentsPage = lazy(() => import("@/features/teacher/students-page"));
+const StudentHomePage = lazy(() => import("@/features/student/student-home-page"));
+const TutorSessionPage = lazy(() => import("@/features/tutoring/tutor-session-page"));
+
+function Home() {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return <FullPageSpinner />;
+  return user ? <Redirect to={homePathFor(user)} replace /> : <LandingPage />;
+}
+
+function LegacyChatRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Redirect to={`/student/assignments/${id}`} replace />;
+}
+
+function NotFound() {
+  return (
+    <main id="main" className="app-backdrop flex min-h-dvh flex-col items-center justify-center p-6 text-center">
+      <p className="text-eyebrow">404</p>
+      <h1 className="mt-2 text-page-title">We couldn't find that page</h1>
+      <p className="mt-2 text-body text-muted-foreground">The link may be old or mistyped.</p>
+      <Button asChild className="mt-6">
+        <a href="/">Go home</a>
+      </Button>
+    </main>
+  );
+}
+
+function UpdateBanner() {
+  const { updateReady, applyUpdate } = useServiceWorkerUpdate();
+  if (!updateReady) return null;
+  return (
+    <div role="status" className="glass fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full px-4 py-2 text-sm shadow-lg lg:bottom-6">
+      A new version of Learnify is ready.
+      <Button size="sm" variant="soft" onClick={applyUpdate}>
+        <RefreshCw aria-hidden /> Update
+      </Button>
+    </div>
+  );
+}
+
+function TeacherArea() {
+  return (
+    <RequireRole role="teacher">
+      <TeacherShell>
+        <Suspense fallback={<FullPageSpinner />}>
+          <Switch>
+            <Route path="/teacher" component={TeacherOverviewPage} />
+            <Route path="/teacher/assignments" component={AssignmentsPage} />
+            <Route path="/teacher/assignments/new" component={NewAssignmentPage} />
+            <Route path="/teacher/assignments/:id" component={AssignmentDetailPage} />
+            <Route path="/teacher/students" component={StudentsPage} />
+            <Route component={NotFound} />
+          </Switch>
+        </Suspense>
+      </TeacherShell>
+    </RequireRole>
+  );
+}
+
+function Routes() {
+  return (
+    <Suspense fallback={<FullPageSpinner />}>
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/login">
+          <RedirectIfSignedIn>
+            <LoginPage />
+          </RedirectIfSignedIn>
+        </Route>
+        <Route path="/signup">
+          <RedirectIfSignedIn>
+            <SignupPage />
+          </RedirectIfSignedIn>
+        </Route>
+        <Route path="/signup/complete" component={GoogleCompletePage} />
+
+        <Route path="/teacher" component={TeacherArea} />
+        <Route path="/teacher/*" component={TeacherArea} />
+
+        <Route path="/student/assignments/:id">
+          <RequireRole role="student">
+            <TutorSessionPage />
+          </RequireRole>
+        </Route>
+        <Route path="/student">
+          <RequireRole role="student">
+            <StudentShell>
+              <StudentHomePage />
+            </StudentShell>
+          </RequireRole>
+        </Route>
+
+        {/* Links from the demo (old bookmarks, old push notifications). */}
+        <Route path="/dashboard" component={Home} />
+        <Route path="/chat/:id" component={LegacyChatRedirect} />
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <TooltipProvider delayDuration={200}>
+            <Routes />
+            <UpdateBanner />
+            <Toaster />
+          </TooltipProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  );
+}

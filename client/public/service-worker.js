@@ -1,215 +1,126 @@
-// Service Worker for PWA with Background Push Notifications
-// Handles push events, offline support, and app installation
+/* Learnify service worker.
+ *
+ * Caching strategy:
+ *  - /api/*            never cached (authenticated, must be fresh)
+ *  - navigations       network-first, falling back to the cached app shell when offline
+ *  - /assets/*         cache-first (Vite content-hashes these, so they are immutable)
+ *  - icons / manifest  stale-while-revalidate
+ * Updates: a new worker waits until the page asks it to activate (SKIP_WAITING), so users
+ * choose when to reload and are never stuck on a stale build.
+ */
+const VERSION = "v12";
+const SHELL_CACHE = `learnify-shell-${VERSION}`;
+const ASSET_CACHE = `learnify-assets-${VERSION}`;
+const SHELL = ["/", "/manifest.json", "/icon.svg", "/icon-192.png", "/theme-init.js"];
 
-const CACHE_NAME = 'learnify-v11';
-const RUNTIME_CACHE = 'learnify-runtime-v11';
+self.addEventListener("install", (event) => {
+  event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL.map((url) => new Request(url, { cache: "reload" })))));
+});
 
-// Static assets to cache on install
-const PRECACHE_ASSETS = [
-  '/',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png'
-];
-
-// Install event - cache static assets
-self.addEventListener('install', event => {
-  console.log('[Service Worker] Installing...');
+self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('[Service Worker] Precaching static assets');
-        return cache.addAll(PRECACHE_ASSETS.map(url => new Request(url, {cache: 'reload'})));
-      })
-      .then(() => self.skipWaiting())
-      .catch(err => {
-        console.error('[Service Worker] Precache failed:', err);
-      })
+    caches
+      .keys()
+      .then((names) => Promise.all(names.filter((n) => n.startsWith("learnify-") && n !== SHELL_CACHE && n !== ASSET_CACHE).map((n) => caches.delete(n))))
+      .then(() => self.clients.claim()),
   );
 });
 
-// Activate event - clean up old caches
-self.addEventListener('activate', event => {
-  console.log('[Service Worker] Activating...');
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames
-          .filter(name => name !== CACHE_NAME && name !== RUNTIME_CACHE)
-          .map(name => {
-            console.log('[Service Worker] Deleting old cache:', name);
-            return caches.delete(name);
-          })
-      );
-    })
-    .then(() => self.clients.claim())
-  );
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 
-// Fetch event - network first, fallback to cache
-self.addEventListener('fetch', event => {
+self.addEventListener("fetch", (event) => {
   const { request } = event;
+  if (request.method !== "GET") return;
   const url = new URL(request.url);
-  
-  // Skip chrome extensions and other origins
-  if (url.origin !== location.origin) {
-    return;
-  }
-  
-  // API requests are never cached; let the browser handle them directly.
-  if (url.pathname.startsWith('/api/')) {
-    return;
-  }
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/") || url.pathname === "/health" || url.pathname === "/ready") return;
 
-  // Skip non-GET requests for static assets
-  if (request.method !== 'GET') {
-    return;
-  }
-
-  // Page navigations - network first so new deployments are picked up,
-  // falling back to the cached app shell when offline.
-  if (request.mode === 'navigate') {
+  if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
-        .then(response => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put('/', copy));
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(SHELL_CACHE).then((cache) => cache.put("/", copy));
+          }
           return response;
         })
-        .catch(() => caches.match('/'))
+        .catch(() => caches.match("/").then((cached) => cached || Response.error())),
     );
     return;
   }
-  
-  // Static assets - cache first, network fallback
-  event.respondWith(
-    caches.match(request)
-      .then(cachedResponse => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        
-        return fetch(request).then(response => {
-          // Don't cache non-successful responses
-          if (!response || response.status !== 200 || response.type === 'error') {
+
+  if (url.pathname.startsWith("/assets/")) {
+    event.respondWith(
+      caches.match(request).then(
+        (cached) =>
+          cached ||
+          fetch(request).then((response) => {
+            if (response.ok) {
+              const copy = response.clone();
+              caches.open(ASSET_CACHE).then((cache) => cache.put(request, copy));
+            }
             return response;
-          }
-          
-          const responseToCache = response.clone();
-          caches.open(RUNTIME_CACHE).then(cache => {
-            cache.put(request, responseToCache);
-          });
-          
-          return response;
-        });
-      })
-  );
-});
-
-// Push event - receive push notifications from server
-self.addEventListener('push', event => {
-  console.log('[Service Worker] Push event received:', event);
-  
-  let notificationData = {
-    title: 'New Homework Available!',
-    body: 'You have new homework to complete',
-    icon: '/icon-192.png',
-    badge: '/favicon.ico',
-  };
-  
-  // Parse push event data from server
-  if (event.data) {
-    try {
-      const data = event.data.json();
-      notificationData = {
-        title: data.title || notificationData.title,
-        body: data.body || notificationData.body,
-        icon: data.icon || notificationData.icon,
-        badge: data.badge || notificationData.badge,
-        data: data.data || {},
-      };
-      console.log('[Service Worker] Parsed notification data:', notificationData);
-    } catch (e) {
-      console.error('[Service Worker] Error parsing push data:', e);
-      notificationData.body = event.data.text();
-    }
-  }
-  
-  const notificationOptions = {
-    body: notificationData.body,
-    icon: notificationData.icon,
-    badge: notificationData.badge,
-    vibrate: [200, 100, 200],
-    tag: notificationData.data?.assignmentId || 'homework-notification',
-    requireInteraction: true, // Keep notification visible until user interacts
-    data: notificationData.data,
-    actions: [
-      { action: 'open', title: 'Start Learning', icon: '/icon-192.png' },
-      { action: 'dismiss', title: 'Later', icon: '/icon-192.png' }
-    ],
-    silent: false // Ensure notification makes sound
-  };
-  
-  console.log('[Service Worker] Showing notification with options:', notificationOptions);
-  
-  event.waitUntil(
-    self.registration.showNotification(notificationData.title, notificationOptions)
-      .then(() => {
-        console.log('[Service Worker] ✓ Notification displayed successfully');
-      })
-      .catch(error => {
-        console.error('[Service Worker] ❌ Failed to show notification:', error);
-      })
-  );
-});
-
-// Notification click event - handle user clicking notification
-self.addEventListener('notificationclick', event => {
-  console.log('[Service Worker] Notification clicked:', event.action);
-  
-  event.notification.close();
-  
-  // Handle different actions
-  if (event.action === 'dismiss') {
+          }),
+      ),
+    );
     return;
   }
-  
-  // Default action or 'open' action - navigate to assignment
-  const assignmentId = event.notification.data?.assignmentId;
-  const urlToOpen = assignmentId ? `/chat/${assignmentId}` : '/dashboard';
-  
-  console.log('[Service Worker] Opening URL:', urlToOpen);
-  
+
+  if (SHELL.includes(url.pathname) || url.pathname.startsWith("/icon")) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        const network = fetch(request)
+          .then((response) => {
+            if (response.ok) {
+              const copy = response.clone();
+              caches.open(SHELL_CACHE).then((cache) => cache.put(request, copy));
+            }
+            return response;
+          })
+          .catch(() => cached);
+        return cached || network;
+      }),
+    );
+  }
+});
+
+// ---- Push notifications ----
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = {};
+  }
+  const title = data.title || "Learnify";
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true })
-      .then(windowClients => {
-        // Check if there's already a window open
-        for (let client of windowClients) {
-          if (client.url.includes('/dashboard') || client.url.includes('/chat')) {
-            console.log('[Service Worker] Found existing client, focusing and navigating');
-            return client.focus().then(client => {
-              // Navigate to specific assignment
-              return client.navigate(urlToOpen);
-            });
-          }
-        }
-        // Otherwise, open a new window
-        console.log('[Service Worker] No existing client, opening new window');
-        if (clients.openWindow) {
-          return clients.openWindow(urlToOpen);
-        }
-      })
+    self.registration.showNotification(title, {
+      body: data.body || "You have new homework.",
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      tag: data.tag || "learnify", // same tag replaces instead of stacking duplicates
+      data: { url: typeof data.url === "string" ? data.url : "/student" },
+    }),
   );
 });
 
-// Background sync event (for future offline support)
-self.addEventListener('sync', event => {
-  console.log('[Service Worker] Background sync:', event.tag);
-  
-  if (event.tag === 'sync-messages') {
-    event.waitUntil(
-      // Sync pending messages when back online
-      Promise.resolve()
-    );
-  }
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  // Only same-origin paths are opened.
+  const raw = (event.notification.data && event.notification.data.url) || "/student";
+  const target = new URL(raw.startsWith("/") && !raw.startsWith("//") ? raw : "/student", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+      for (const client of windows) {
+        if (client.url.startsWith(self.location.origin) && "focus" in client) {
+          client.navigate(target);
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    }),
+  );
 });

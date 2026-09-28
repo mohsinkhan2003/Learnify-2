@@ -1,28 +1,23 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Learnify - Interactive Learning Platform</title>
-    <meta name="description" content="AI-powered tutoring system for interactive learning" />
-
-    <!-- PWA Configuration -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Learnify — AI homework tutor</title>
+    <meta name="description" content="Learnify guides students through homework with a patient, voice-first AI tutor, and gives teachers clear, explainable insight into progress." />
+    <meta name="theme-color" content="#fbfaf8" />
+    <meta name="color-scheme" content="light dark" />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#0ea5e9" />
-    <meta name="mobile-web-app-capable" content="yes" />
-
-    <!-- iOS Specific -->
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Learnify" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
-    <link rel="apple-startup-image" href="/icon-512.png" />
-
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Learnify" />
+    <script src="/theme-init.js"></script>
   </head>
   <body>
+    <noscript>Learnify needs JavaScript to run.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -1,105 +1,93 @@
 import type { Config } from "tailwindcss";
 
+const token = (name: string) => `hsl(var(--${name}) / <alpha-value>)`;
+
 export default {
   darkMode: ["class"],
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
+    container: { center: true, padding: "1rem" },
     extend: {
+      fontFamily: {
+        sans: ['"Inter Variable"', "Inter", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+      },
       borderRadius: {
-        lg: ".5625rem", /* 9px */
-        md: ".375rem", /* 6px */
-        sm: ".1875rem", /* 3px */
+        xl: "calc(var(--radius) + 4px)",
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 4px)",
+        sm: "calc(var(--radius) - 8px)",
+      },
+      boxShadow: {
+        xs: "var(--shadow-xs)",
+        sm: "var(--shadow-sm)",
+        md: "var(--shadow-md)",
+        lg: "var(--shadow-lg)",
       },
       colors: {
-        // Flat / base colors (regular buttons)
-        background: "hsl(var(--background) / <alpha-value>)",
-        foreground: "hsl(var(--foreground) / <alpha-value>)",
-        border: "hsl(var(--border) / <alpha-value>)",
-        input: "hsl(var(--input) / <alpha-value>)",
-        card: {
-          DEFAULT: "hsl(var(--card) / <alpha-value>)",
-          foreground: "hsl(var(--card-foreground) / <alpha-value>)",
-          border: "hsl(var(--card-border) / <alpha-value>)",
-        },
-        popover: {
-          DEFAULT: "hsl(var(--popover) / <alpha-value>)",
-          foreground: "hsl(var(--popover-foreground) / <alpha-value>)",
-          border: "hsl(var(--popover-border) / <alpha-value>)",
-        },
+        background: token("background"),
+        foreground: token("foreground"),
+        border: token("border"),
+        input: token("input"),
+        ring: token("ring"),
+        card: { DEFAULT: token("card"), foreground: token("card-foreground"), border: token("border") },
+        popover: { DEFAULT: token("popover"), foreground: token("popover-foreground"), border: token("border") },
+        "surface-muted": token("surface-muted"),
         primary: {
-          DEFAULT: "hsl(var(--primary) / <alpha-value>)",
-          foreground: "hsl(var(--primary-foreground) / <alpha-value>)",
-          border: "var(--primary-border)",
+          DEFAULT: token("primary"),
+          foreground: token("primary-foreground"),
+          soft: token("primary-soft"),
+          strong: token("primary-strong"),
+          border: "hsl(var(--primary-strong) / 0.2)",
         },
-        secondary: {
-          DEFAULT: "hsl(var(--secondary) / <alpha-value>)",
-          foreground: "hsl(var(--secondary-foreground) / <alpha-value>)",
-          border: "var(--secondary-border)",
-        },
-        muted: {
-          DEFAULT: "hsl(var(--muted) / <alpha-value>)",
-          foreground: "hsl(var(--muted-foreground) / <alpha-value>)",
-          border: "var(--muted-border)",
-        },
-        accent: {
-          DEFAULT: "hsl(var(--accent) / <alpha-value>)",
-          foreground: "hsl(var(--accent-foreground) / <alpha-value>)",
-          border: "var(--accent-border)",
-        },
+        secondary: { DEFAULT: token("secondary"), foreground: token("secondary-foreground"), border: "transparent" },
+        muted: { DEFAULT: token("muted"), foreground: token("muted-foreground"), border: "transparent" },
+        accent: { DEFAULT: token("accent"), foreground: token("accent-foreground"), strong: token("accent-strong"), border: "transparent" },
+        success: { DEFAULT: token("success"), soft: token("success-soft") },
+        warning: { DEFAULT: token("warning"), soft: token("warning-soft") },
+        info: { DEFAULT: token("info"), soft: token("info-soft") },
         destructive: {
-          DEFAULT: "hsl(var(--destructive) / <alpha-value>)",
-          foreground: "hsl(var(--destructive-foreground) / <alpha-value>)",
-          border: "var(--destructive-border)",
-        },
-        ring: "hsl(var(--ring) / <alpha-value>)",
-        chart: {
-          "1": "hsl(var(--chart-1) / <alpha-value>)",
-          "2": "hsl(var(--chart-2) / <alpha-value>)",
-          "3": "hsl(var(--chart-3) / <alpha-value>)",
-          "4": "hsl(var(--chart-4) / <alpha-value>)",
-          "5": "hsl(var(--chart-5) / <alpha-value>)",
+          DEFAULT: token("destructive"),
+          foreground: token("destructive-foreground"),
+          soft: token("destructive-soft"),
+          border: "transparent",
         },
         sidebar: {
-          ring: "hsl(var(--sidebar-ring) / <alpha-value>)",
-          DEFAULT: "hsl(var(--sidebar) / <alpha-value>)",
-          foreground: "hsl(var(--sidebar-foreground) / <alpha-value>)",
-          border: "hsl(var(--sidebar-border) / <alpha-value>)",
+          DEFAULT: token("sidebar"),
+          foreground: token("sidebar-foreground"),
+          border: token("sidebar-border"),
+          ring: token("sidebar-ring"),
+          primary: token("sidebar-primary"),
+          "primary-foreground": token("sidebar-primary-foreground"),
+          accent: token("sidebar-accent"),
+          "accent-foreground": token("sidebar-accent-foreground"),
         },
-        "sidebar-primary": {
-          DEFAULT: "hsl(var(--sidebar-primary) / <alpha-value>)",
-          foreground: "hsl(var(--sidebar-primary-foreground) / <alpha-value>)",
-          border: "var(--sidebar-primary-border)",
-        },
-        "sidebar-accent": {
-          DEFAULT: "hsl(var(--sidebar-accent) / <alpha-value>)",
-          foreground: "hsl(var(--sidebar-accent-foreground) / <alpha-value>)",
-          border: "var(--sidebar-accent-border)"
-        },
-        status: {
-          online: "rgb(34 197 94)",
-          away: "rgb(245 158 11)",
-          busy: "rgb(239 68 68)",
-          offline: "rgb(156 163 175)",
-        },
-      },
-      fontFamily: {
-        sans: ["var(--font-sans)"],
-        serif: ["var(--font-serif)"],
-        mono: ["var(--font-mono)"],
+        chart: { "1": token("chart-1"), "2": token("chart-2"), "3": token("chart-3"), "4": token("chart-4"), "5": token("chart-5") },
       },
       keyframes: {
-        "accordion-down": {
-          from: { height: "0" },
-          to: { height: "var(--radix-accordion-content-height)" },
+        "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },
+        "accordion-up": { from: { height: "var(--radix-accordion-content-height)" }, to: { height: "0" } },
+        "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
+        "fade-up": { from: { opacity: "0", transform: "translateY(6px)" }, to: { opacity: "1", transform: "translateY(0)" } },
+        "pulse-ring": {
+          "0%": { transform: "scale(0.9)", opacity: "0.55" },
+          "100%": { transform: "scale(1.5)", opacity: "0" },
         },
-        "accordion-up": {
-          from: { height: "var(--radix-accordion-content-height)" },
-          to: { height: "0" },
+        "thinking-dot": {
+          "0%, 80%, 100%": { transform: "translateY(0)", opacity: "0.35" },
+          "40%": { transform: "translateY(-3px)", opacity: "1" },
         },
+        breathe: { "0%, 100%": { transform: "scale(1)" }, "50%": { transform: "scale(1.04)" } },
+        "spin-slow": { to: { transform: "rotate(360deg)" } },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-in": "fade-in 0.25s ease-out both",
+        "fade-up": "fade-up 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) both",
+        "pulse-ring": "pulse-ring 1.8s cubic-bezier(0.2, 0.6, 0.4, 1) infinite",
+        "thinking-dot": "thinking-dot 1.2s ease-in-out infinite",
+        breathe: "breathe 3.2s ease-in-out infinite",
+        "spin-slow": "spin-slow 3s linear infinite",
       },
     },
   },

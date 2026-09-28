@@ -1,7 +1,0 @@
-
-<svg width="192" height="192" xmlns="http://www.w3.org/2000/svg">
-  <rect width="192" height="192" fill="#0ea5e9" rx="40"/>
-  <text x="96" y="135" font-size="120" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-weight="bold">L</text>
-  <circle cx="96" cy="50" r="25" fill="#fbbf24"/>
-  <path d="M 71 50 L 96 25 L 121 50" fill="#fbbf24" stroke="white" stroke-width="3"/>
-</svg>
