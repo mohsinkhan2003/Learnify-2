@@ -31,9 +31,4 @@ export default defineConfig({
       deny: ["**/.*"],
     },
   },
-  test: {
-    root: import.meta.dirname,
-    include: ["server/**/*.test.ts", "shared/**/*.test.ts"],
-    environment: "node",
-  },
 });
