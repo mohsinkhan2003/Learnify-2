@@ -99,3 +99,41 @@ test("public pages are accessible", async ({ page }) => {
     await expectAccessible(page);
   }
 });
+
+test("network loss while sending: message is kept, can be retried, nothing is duplicated", async ({ browser }) => {
+  const id = unique();
+  const school = `Offline ${id}`;
+  const teacher = await (await browser.newContext()).newPage();
+  await signUp(teacher, { role: "teacher", name: "Olga", email: `olga${id}@example.com`, school, subject: "Chemistry" });
+  await teacher.evaluate(async () => {
+    await fetch("/api/teacher/assignments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        topic: "Atoms",
+        subject: "Chemistry",
+        grade: "Year 8",
+        instructions: "",
+        releaseAt: new Date().toISOString(),
+      }),
+    });
+  });
+
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await signUp(page, { role: "student", name: "Omar", email: `omar${id}@example.com`, school });
+  await page.getByRole("link", { name: /Atoms/ }).click();
+  await page.getByRole("button", { name: /Type instead/ }).click();
+  await expect(page.getByText(/How are you today/)).toBeVisible();
+
+  await ctx.setOffline(true);
+  await page.getByLabel("Type your answer").fill("I'm doing well");
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(page.getByText(/appear to be offline/)).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "You're offline" })).toBeVisible();
+
+  await ctx.setOffline(false);
+  await page.getByRole("button", { name: "Retry" }).click();
+  await expect(page.getByText("Are you ready to begin?")).toBeVisible();
+  await expect(page.getByText("I'm doing well")).toHaveCount(1);
+});
