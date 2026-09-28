@@ -165,3 +165,14 @@ describe("assignment access policy", () => {
     expect(canStudentAccessAssignment({ ...student, role: "teacher" } as User, a({}), recipient, now)).toBe(false);
   });
 });
+
+describe("join codes", () => {
+  it("normalises typed codes and pasted invite links", async () => {
+    const { normalizeJoinCode, formatJoinCode } = await import("../../server/modules/classes/join-code");
+    expect(normalizeJoinCode(" k7m4-qxpb ")).toBe("K7M4QXPB");
+    expect(normalizeJoinCode("https://learnify.example/join/K7M4-QXPB")).toBe("K7M4QXPB");
+    expect(normalizeJoinCode("K7M4-QXP0")).toBeNull(); // 0 is not in the alphabet
+    expect(normalizeJoinCode("short")).toBeNull();
+    expect(formatJoinCode("K7M4QXPB")).toBe("K7M4-QXPB");
+  });
+});

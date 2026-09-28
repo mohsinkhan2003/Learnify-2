@@ -99,10 +99,11 @@ export function fieldProps(id: string, error?: string, hint?: string) {
   } as const;
 }
 
-export function GoogleButton() {
+export function GoogleButton({ onClick }: { onClick?: () => void }) {
   return (
     <a
       href="/api/auth/google/start"
+      onClick={onClick}
       className="flex h-11 w-full items-center justify-center gap-3 rounded-md border border-input bg-card text-sm font-medium shadow-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>

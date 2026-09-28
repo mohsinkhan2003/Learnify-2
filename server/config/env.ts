@@ -62,6 +62,13 @@ const envSchema = z
     // Email (optional; password-reset emails). Resend has a free tier: https://resend.com
     RESEND_API_KEY: z.string().optional(),
     EMAIL_FROM: z.string().optional(),
+    // SMTP (e.g. Gmail with an app password: smtp.gmail.com, port 465). Used when RESEND_API_KEY is unset.
+    SMTP_HOST: z.string().optional(),
+    SMTP_PORT: z.coerce.number().int().positive().default(465),
+    SMTP_USER: z.string().optional(),
+    SMTP_PASS: z.string().optional(),
+    // "required" (default when email can be sent) or "off".
+    EMAIL_VERIFICATION: z.enum(["required", "off"]).default("required"),
 
     // Google OAuth
     GOOGLE_CLIENT_ID: z.string().optional(),
@@ -85,13 +92,6 @@ const envSchema = z
         code: "custom",
         path: ["SESSION_SECRET"],
         message: "SESSION_SECRET (32+ chars) is required when Google sign-in is enabled",
-      });
-    }
-    if (googleEnabled && isProd && !env.GOOGLE_REDIRECT_URI) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["GOOGLE_REDIRECT_URI"],
-        message: "GOOGLE_REDIRECT_URI is required when Google sign-in is enabled",
       });
     }
   });
@@ -167,13 +167,22 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env) {
       privateKey: env.VAPID_PRIVATE_KEY?.trim(),
       subject: env.VAPID_SUBJECT,
     },
-    email: { resendApiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM },
+    email: {
+      resendApiKey: env.RESEND_API_KEY,
+      from: env.EMAIL_FROM ?? (env.SMTP_USER ? `Learnify <${env.SMTP_USER}>` : undefined),
+      smtp:
+        env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS
+          ? { host: env.SMTP_HOST, port: env.SMTP_PORT, user: env.SMTP_USER, pass: env.SMTP_PASS }
+          : null,
+      verification: env.EMAIL_VERIFICATION,
+    },
     google:
       env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
         ? {
             clientId: env.GOOGLE_CLIENT_ID,
             clientSecret: env.GOOGLE_CLIENT_SECRET,
-            redirectUri: env.GOOGLE_REDIRECT_URI ?? `http://localhost:${env.PORT}/api/auth/google/callback`,
+            // Defaults to APP_URL's callback, which must be listed exactly in the Google Cloud console.
+            redirectUri: env.GOOGLE_REDIRECT_URI ?? `${appOrigin ?? `http://localhost:${env.PORT}`}/api/auth/google/callback`,
           }
         : null,
   };

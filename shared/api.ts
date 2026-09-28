@@ -18,6 +18,8 @@ export interface PublicUser {
   school: string | null;
   subject: string | null;
   avatar: string | null;
+  /** False only while email verification is required and still pending. */
+  emailVerified: boolean;
 }
 
 export interface AuthProviders {
@@ -49,6 +51,14 @@ export interface ClassMemberDto {
 export interface ClassDetailDto {
   class: ClassDto;
   members: ClassMemberDto[];
+}
+
+/** Public preview of a class invite (shown before signing up / joining). */
+export interface ClassInviteDto {
+  code: string;
+  name: string;
+  subject: string | null;
+  teacherName: string;
 }
 
 export interface StudentClassDto {

@@ -66,6 +66,17 @@ teacherClassRoutes.post(
   }),
 );
 
+/** Mounted at /api/classes: public, for invite links (rate limited per IP against code guessing). */
+export const publicClassRoutes = Router();
+
+publicClassRoutes.get(
+  "/invite/:code",
+  rateLimits.invitePreview,
+  asyncHandler(async (req, res) => {
+    res.json(await classesService.invitePreview(parse(z.string().max(20), req.params.code)));
+  }),
+);
+
 /** Mounted at /api/student/classes. */
 export const studentClassRoutes = Router();
 studentClassRoutes.use(requireRole("student"));

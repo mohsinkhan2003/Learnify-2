@@ -2,6 +2,12 @@ import { eq, sql } from "drizzle-orm";
 import { users, type InsertUser, type User } from "@shared/schema";
 import type { PublicUser } from "@shared/api";
 import { db, type DbOrTx } from "../db";
+import { config } from "../config/env";
+import { isEmailEnabled } from "../lib/email";
+
+/** Verification is enforced only when email can actually be sent and it isn't switched off. */
+export const isVerificationRequired = () => config.email.verification === "required" && isEmailEnabled();
+export const isEmailVerified = (user: User) => !!user.emailVerifiedAt || !isVerificationRequired();
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -36,10 +42,16 @@ export const usersRepository = {
     return user;
   },
 
-  async linkGoogle(userId: string, googleId: string, avatar: string | null): Promise<User> {
+  async linkGoogle(userId: string, googleId: string, avatar: string | null, opts: { dropPassword?: boolean } = {}): Promise<User> {
     const [user] = await db
       .update(users)
-      .set({ googleId, ...(avatar ? { avatar } : {}) })
+      // Google has verified the address.
+      .set({
+        googleId,
+        emailVerifiedAt: sql`coalesce(${users.emailVerifiedAt}, now())`,
+        ...(opts.dropPassword ? { password: null } : {}),
+        ...(avatar ? { avatar } : {}),
+      })
       .where(eq(users.id, userId))
       .returning();
     return user;
@@ -56,5 +68,6 @@ export function toPublicUser(user: User): PublicUser {
     school: user.school,
     subject: user.subject,
     avatar: user.avatar,
+    emailVerified: isEmailVerified(user),
   };
 }

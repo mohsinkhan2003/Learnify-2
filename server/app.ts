@@ -5,7 +5,7 @@ import cookieParser from "cookie-parser";
 import { config } from "./config/env";
 import { checkDatabase } from "./db";
 import { requestContext } from "./middleware/request-context";
-import { authenticate } from "./middleware/auth";
+import { authenticate, requireVerifiedEmail } from "./middleware/auth";
 import { csrfProtection } from "./middleware/csrf";
 import { rateLimits } from "./middleware/rate-limit";
 import { apiNotFound, errorHandler } from "./middleware/error-handler";
@@ -13,7 +13,7 @@ import authRoutes from "./auth/auth.routes";
 import teacherRoutes from "./modules/assignments/teacher.routes";
 import studentRoutes from "./modules/tutoring/student.routes";
 import pushRoutes from "./notifications/push.routes";
-import { studentClassRoutes } from "./modules/classes/classes.routes";
+import { publicClassRoutes, studentClassRoutes } from "./modules/classes/classes.routes";
 import { runMaintenance } from "./jobs";
 import { timingSafeEqual } from "crypto";
 
@@ -102,6 +102,8 @@ export function createApp(): Express {
   });
 
   api.use("/auth", authRoutes);
+  api.use("/classes", publicClassRoutes);
+  api.use(["/teacher", "/student", "/push"], requireVerifiedEmail);
   api.use("/teacher", teacherRoutes);
   api.use("/student/classes", studentClassRoutes);
   api.use("/student", studentRoutes);

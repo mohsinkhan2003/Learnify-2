@@ -4,6 +4,7 @@ import type { Role } from "@shared/api";
 import { findSessionUser, SESSION_COOKIE } from "../auth/sessions";
 import { forbidden, unauthorized } from "../lib/errors";
 import { asyncHandler } from "../lib/http";
+import { isEmailVerified } from "../auth/users.repository";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -40,6 +41,14 @@ export function requireRole(role: Role): RequestHandler {
     next();
   };
 }
+
+/** Blocks app features until the user has confirmed their email (when verification is required). */
+export const requireVerifiedEmail: RequestHandler = (req, _res, next) => {
+  if (req.user && !isEmailVerified(req.user)) {
+    return next(forbidden("Please confirm your email address first. Check your inbox for the link.", "EMAIL_NOT_VERIFIED"));
+  }
+  next();
+};
 
 /** The authenticated user. Only call behind requireAuth/requireRole. */
 export function currentUser(req: Request): User {

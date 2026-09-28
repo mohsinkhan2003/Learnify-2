@@ -21,6 +21,8 @@ export const users = pgTable(
     school: varchar("school", { length: 255 }), // tenant boundary for teachers and students
     googleId: text("google_id").unique(),
     avatar: text("avatar"),
+    /** When the user proved they own `email` (verification link, email reset, or Google). */
+    emailVerifiedAt: tz("email_verified_at"),
     createdAt: tz("created_at").defaultNow().notNull(),
   },
   (t) => ({
@@ -41,6 +43,23 @@ export const sessions = pgTable(
   },
   (t) => ({
     userIdx: index("sessions_user_idx").on(t.userId),
+  }),
+);
+
+/** Single-use email verification links (24 h). Only a SHA-256 hash of each token is stored. */
+export const emailVerificationTokens = pgTable(
+  "email_verification_tokens",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: tz("expires_at").notNull(),
+    createdAt: tz("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    userIdx: index("email_verification_tokens_user_idx").on(t.userId),
   }),
 );
 

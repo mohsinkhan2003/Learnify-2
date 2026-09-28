@@ -15,9 +15,10 @@ export function generateJoinCode(): string {
   return out.length === JOIN_CODE_LENGTH ? out : generateJoinCode();
 }
 
-/** Accepts "k7m4-qxpb", " K7M4 QXPB " etc. Returns null if it cannot be a valid code. */
+/** Accepts "k7m4-qxpb", " K7M4 QXPB ", a pasted invite link, etc. Returns null if it cannot be a valid code. */
 export function normalizeJoinCode(input: string): string | null {
-  const code = input.toUpperCase().replace(/[\s-]/g, "");
+  const fromLink = input.match(/\/join\/([A-Za-z0-9-]+)/)?.[1];
+  const code = (fromLink ?? input).toUpperCase().replace(/[\s-]/g, "");
   if (code.length !== JOIN_CODE_LENGTH) return null;
   for (const ch of code) if (!ALPHABET.includes(ch)) return null;
   return code;

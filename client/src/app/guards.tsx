@@ -3,6 +3,7 @@ import { Redirect, useLocation } from "wouter";
 import type { Role } from "@shared/api";
 import { homePathFor, useAuth } from "@/features/auth/use-auth";
 import { ErrorState, FullPageSpinner } from "@/components/common/states";
+import { VerifyEmailPending } from "@/features/auth/verify-email";
 
 /**
  * UX-only route guard: sends signed-out users to sign in and users of the other role to their
@@ -16,6 +17,7 @@ export function RequireRole({ role, children }: { role: Role; children: ReactNod
   if (error && !user) return <ErrorState className="m-6" error={error} onRetry={() => refetch()} />;
   if (!user) return <Redirect to={`/login?next=${encodeURIComponent(location)}`} replace />;
   if (user.role !== role) return <Redirect to={homePathFor(user)} replace />;
+  if (!user.emailVerified) return <VerifyEmailPending user={user} />;
   return <>{children}</>;
 }
 

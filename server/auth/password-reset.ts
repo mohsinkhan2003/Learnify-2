@@ -3,7 +3,7 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import { passwordResetTokens, users, type User } from "@shared/schema";
 import { db } from "../db";
 import { config } from "../config/env";
-import { sendEmail } from "../lib/email";
+import { escapeHtml, sendEmail } from "../lib/email";
 import { hashPassword } from "./password";
 import { deleteUserSessions } from "./sessions";
 
@@ -65,15 +65,17 @@ export async function consumeReset(token: string, newPassword: string): Promise<
         )
         .returning();
       if (!row) return null;
-      const [user] = await tx.update(users).set({ password: passwordHash }).where(eq(users.id, row.userId)).returning();
+      // A link that arrived by email also proves the user owns the address.
+      const proof = row.createdBy === null ? { emailVerifiedAt: new Date() } : {};
+      const [user] = await tx
+        .update(users)
+        .set({ password: passwordHash, ...proof })
+        .where(eq(users.id, row.userId))
+        .returning();
       return user ?? null;
     })
     .then(async (user) => {
       if (user) await deleteUserSessions(user.id);
       return user;
     });
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }

@@ -87,6 +87,29 @@ hosts.
 4. **Deploy.** The app is live at `https://<project>.vercel.app`; `APP_URL` is derived from
    Vercel's production URL (set it yourself only for a custom domain).
 
+### Email (sign-up confirmation and password resets)
+
+With email configured, new accounts must confirm their address before using the app. The
+simplest free option is a Gmail account with an app password (about 500 emails a day):
+
+1. Turn on 2-Step Verification for the Google account, then create an app password at
+   <https://myaccount.google.com/apppasswords> (16 characters).
+2. Add environment variables: `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`,
+   `SMTP_USER=<the gmail address>`, `SMTP_PASS=<the app password>`.
+3. Redeploy. Emails come from `Learnify <SMTP_USER>` (override with `EMAIL_FROM`).
+
+Accounts that existed before verification was added are treated as confirmed.
+
+### Google sign-in
+
+1. <https://console.cloud.google.com> → create a project → **APIs & Services → OAuth consent
+   screen**: External, app name "Learnify", your email; publish the app.
+2. **Credentials → Create credentials → OAuth client ID** → *Web application*. Authorised
+   redirect URI: `https://<your-domain>/api/auth/google/callback` (exactly).
+3. Add environment variables `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `SESSION_SECRET`
+   (32+ random characters), then redeploy. The "Continue with Google" button appears
+   automatically.
+
 How it differs from a long-running server:
 
 | Concern | On Vercel |

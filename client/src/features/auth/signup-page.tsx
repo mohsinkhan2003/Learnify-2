@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ApiError, apiGet, errorMessage, fieldErrors } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { AuthLayout, FormField, GoogleButton, OrDivider, fieldProps } from "./auth-layout";
+import { readPendingClassCode, savePendingClassCode } from "./pending-class-code";
 import { homePathFor, useAuthProviders, useCompleteGoogleSignup, useSignup } from "./use-auth";
 
 type Role = "teacher" | "student";
@@ -119,9 +120,10 @@ export default function SignupPage() {
   const [, navigate] = useLocation();
   const signup = useSignup();
   const providers = useAuthProviders();
-  const [role, setRole] = useState<Role | null>(null);
-  const [step, setStep] = useState<1 | 2>(1);
   const initialCode = new URLSearchParams(useSearch()).get("code") ?? "";
+  // A class code in the link means a student was invited.
+  const [role, setRole] = useState<Role | null>(initialCode ? "student" : null);
+  const [step, setStep] = useState<1 | 2>(1);
   const [values, setValues] = useState({ name: "", email: "", password: "", school: "", subject: "", classCode: initialCode });
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
   const set = (k: string, v: string) => setValues((s) => ({ ...s, [k]: v }));
@@ -173,7 +175,7 @@ export default function SignupPage() {
           {providers.data?.google && (
             <>
               <OrDivider />
-              <GoogleButton />
+              <GoogleButton onClick={() => savePendingClassCode(role === "student" ? initialCode : "")} />
             </>
           )}
         </div>
@@ -244,8 +246,9 @@ export function GoogleCompletePage() {
     queryFn: () => apiGet<{ email: string; name: string }>("/api/auth/google/pending"),
     retry: false,
   });
-  const [role, setRole] = useState<Role | null>(null);
-  const [values, setValues] = useState({ school: "", subject: "" });
+  const pendingCode = readPendingClassCode();
+  const [role, setRole] = useState<Role | null>(pendingCode ? "student" : null);
+  const [values, setValues] = useState({ school: "", subject: "", classCode: pendingCode });
   const errors = fieldErrors(complete.error);
 
   if (pending.isError) {
@@ -266,8 +269,19 @@ export function GoogleCompletePage() {
           e.preventDefault();
           if (!role) return;
           complete.mutate(
-            { name: pending.data?.name ?? "", role, school: values.school, subject: role === "teacher" ? values.subject : undefined },
-            { onSuccess: (u) => navigate(homePathFor(u), { replace: true }) },
+            {
+              name: pending.data?.name ?? "",
+              role,
+              school: values.school,
+              subject: role === "teacher" ? values.subject : undefined,
+              classCode: role === "student" && values.classCode.trim() ? values.classCode.trim() : undefined,
+            },
+            {
+              onSuccess: (u) => {
+                savePendingClassCode("");
+                navigate(homePathFor(u), { replace: true });
+              },
+            },
           );
         }}
       >

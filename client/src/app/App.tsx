@@ -28,6 +28,8 @@ const ClassesPage = lazy(() => import("@/features/teacher/classes-page"));
 const ClassDetailPage = lazy(() => import("@/features/teacher/class-detail-page"));
 const ForgotPasswordPage = lazy(() => import("@/features/auth/password-pages").then((m) => ({ default: m.ForgotPasswordPage })));
 const ResetPasswordPage = lazy(() => import("@/features/auth/password-pages").then((m) => ({ default: m.ResetPasswordPage })));
+const VerifyEmailPage = lazy(() => import("@/features/auth/verify-email"));
+const JoinClassPage = lazy(() => import("@/features/student/join-page"));
 const StudentHomePage = lazy(() => import("@/features/student/student-home-page"));
 const TutorSessionPage = lazy(() => import("@/features/tutoring/tutor-session-page"));
 
@@ -110,6 +112,8 @@ function Routes() {
         <Route path="/signup/complete" component={GoogleCompletePage} />
         <Route path="/forgot-password" component={ForgotPasswordPage} />
         <Route path="/reset-password" component={ResetPasswordPage} />
+        <Route path="/verify-email" component={VerifyEmailPage} />
+        <Route path="/join/:code" component={JoinClassPage} />
 
         <Route path="/teacher" component={TeacherArea} />
         <Route path="/teacher/*" component={TeacherArea} />

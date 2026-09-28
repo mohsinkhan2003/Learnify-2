@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Archive, ArrowLeft, KeyRound, Plus, RefreshCw, UserMinus, UserPlus } from "lucide-react";
+import { Archive, ArrowLeft, KeyRound, Plus, UserMinus, UserPlus } from "lucide-react";
 import type { ClassDetailDto, ClassDto, ResetLinkDto } from "@shared/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CopyButton } from "@/components/common/copy-button";
+import { InvitePanel } from "./invite-panel";
 import { EmptyState, ErrorState, FullPageSpinner } from "@/components/common/states";
 import { useToast } from "@/hooks/use-toast";
 import { apiDelete, apiPatch, apiPost, errorMessage } from "@/lib/api";
@@ -93,30 +94,7 @@ export default function ClassDetailPage() {
         </div>
       </div>
 
-      <section aria-labelledby="code-title" className="glass rounded-xl p-6 shadow-md">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 id="code-title" className="text-label text-muted-foreground">
-              Class join code
-            </h2>
-            <p
-              className="mt-1 font-mono text-4xl font-semibold tracking-[0.18em]"
-              aria-label={`Join code ${cls.joinCode.split("").join(" ")}`}
-            >
-              {cls.joinCode}
-            </p>
-            <p className="mt-2 max-w-md text-helper">
-              Students enter this when they sign up or from <strong>Join a class</strong> on their home page. Codes aren't case-sensitive.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <CopyButton value={cls.joinCode} label="Copy code" />
-            <Button variant="ghost" size="sm" onClick={() => setConfirm({ kind: "code" })} loading={regenerate.isPending}>
-              <RefreshCw aria-hidden /> New code
-            </Button>
-          </div>
-        </div>
-      </section>
+      <InvitePanel cls={cls} onNewCode={() => setConfirm({ kind: "code" })} regenerating={regenerate.isPending} />
 
       <section aria-labelledby="members-title" className="space-y-4">
         <h2 id="members-title" className="text-section-title">

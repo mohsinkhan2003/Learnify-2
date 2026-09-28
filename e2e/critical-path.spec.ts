@@ -18,7 +18,7 @@ test("teacher assigns → student completes a tutoring session → teacher sees 
   await teacher.getByLabel("Class name").fill("Year 10 Biology");
   await teacher.getByRole("button", { name: "Create class" }).click();
   await expect(teacher.getByRole("heading", { name: "Year 10 Biology" })).toBeVisible();
-  const code = (await teacher.getByLabel(/^Join code/).textContent())!.trim();
+  const code = (await teacher.getByLabel(/^Class code [A-Z0-9]/).textContent())!.trim();
   expect(code).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
   await expectAccessible(teacher);
 
@@ -189,4 +189,40 @@ test("network loss while sending: message is kept, can be retried, nothing is du
   await page.getByRole("button", { name: "Retry" }).click();
   await expect(page.getByText("Are you ready to begin?")).toBeVisible();
   await expect(page.getByText("I'm doing well")).toHaveCount(1);
+});
+
+test("a student joins through the teacher's invite link", async ({ browser }) => {
+  const id = unique();
+  const teacher = await (await browser.newContext()).newPage();
+  await signUp(teacher, { role: "teacher", name: "Ines", email: `ines${id}@example.com`, school: `Invite ${id}`, subject: "Geography" });
+  await createClassWithAssignment(teacher, { topic: "Rivers", subject: "Geography", grade: "Year 8" });
+  await teacher.goto("/teacher/classes");
+  await teacher.getByRole("link", { name: /Geography class/ }).click();
+  const link = await teacher.getByLabel("Invite link").inputValue();
+  expect(link).toMatch(/\/join\/[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+  await expect(teacher.getByRole("img", { name: /QR code/ })).toBeVisible();
+  await expectAccessible(teacher);
+
+  const student = await (await browser.newContext()).newPage();
+  await student.goto(link);
+  await expect(student.getByRole("heading", { name: "Join Geography class" })).toBeVisible();
+  await expect(student.getByText(/Ines invited you/)).toBeVisible();
+  await expectAccessible(student);
+  await student.getByRole("link", { name: "Create my student account" }).click();
+  // The invite pre-selects "student" and fills in the class code.
+  await expect(student.getByRole("radio", { name: /I'm a student/ })).toHaveAttribute("aria-checked", "true");
+  await student.getByRole("button", { name: "Continue" }).click();
+  await expect(student.getByLabel("Class code (optional)")).toHaveValue(link.split("/join/")[1]);
+  await student.getByLabel("Full name").fill("Jules");
+  await student.getByLabel("Email").fill(`jules${id}@example.com`);
+  await student.getByLabel("Password").fill("correct horse battery");
+  await student.getByLabel("School").fill(`Invite ${id}`);
+  await student.getByRole("button", { name: "Create account" }).click();
+  await student.waitForURL("**/student");
+  await expect(student.getByRole("link", { name: /Rivers/ })).toBeVisible();
+
+  // Opening the link again while signed in just confirms membership.
+  await student.goto(link);
+  await student.getByRole("button", { name: "Join class" }).click();
+  await student.waitForURL("**/student");
 });

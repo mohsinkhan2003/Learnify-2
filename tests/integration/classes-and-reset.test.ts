@@ -182,3 +182,18 @@ describe("password reset", () => {
     expect((await client().post("/api/auth/password/reset", { token: t2, password: "long enough password" })).status).toBe(200);
   });
 });
+
+describe("invite links", () => {
+  it("previews a class publicly (name and teacher only) and rejects bad codes", async () => {
+    const c = client;
+    const teacher = await signUp("teacher");
+    const cls = (await teacher.c.post("/api/teacher/classes", { name: "Year 9 Science" })).body;
+    const preview = await c().get(`/api/classes/invite/${cls.joinCode.toLowerCase()}`);
+    expect(preview.status).toBe(200);
+    expect(preview.body).toEqual({ code: cls.joinCode, name: "Year 9 Science", subject: "Biology", teacherName: teacher.user.name });
+    expect((await c().get("/api/classes/invite/NOPE-NOPE")).status).toBe(404);
+
+    await teacher.c.raw.patch(`/api/teacher/classes/${cls.id}`).set("Origin", ORIGIN).send({ archived: true });
+    expect((await c().get(`/api/classes/invite/${cls.joinCode}`)).status).toBe(404);
+  });
+});

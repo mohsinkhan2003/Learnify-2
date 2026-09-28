@@ -57,4 +57,8 @@ export const rateLimits = {
   /** Reset emails / links: per IP+email and per user. */
   forgotPassword: limiter("forgot", 15 * MIN, 5, "ip+email"),
   passwordReset: limiter("reset", 15 * MIN, 10, "user"),
+  /** Public invite-link previews: per IP, against guessing codes. */
+  invitePreview: limiter("invite", 15 * MIN, 60),
+  /** Resending confirmation emails. */
+  verificationEmail: limiter("verify-email", 15 * MIN, 5, "user"),
 };

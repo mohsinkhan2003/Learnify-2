@@ -41,6 +41,15 @@ claims** — see "Needs legal/privacy review" at the end.
 - Teachers can only assign to their own, non-archived classes, and recipients must be members of
   that class (server-validated). Student membership only comes from a join code, so typing a
   school name no longer grants access to anything.
+- **Email verification:** when email is configured, new password accounts must confirm their
+  address (single-use 24-hour link, SHA-256-hashed token, newest link only) before any
+  `/api/teacher`, `/api/student` or `/api/push` endpoint answers (`403 EMAIL_NOT_VERIFIED`).
+  Google accounts and emailed password resets count as proof. When Google sign-in links to an
+  existing account whose email was never confirmed, that account's password and sessions are
+  removed, so someone who registered another person's address cannot keep access
+  (account pre-hijacking).
+- **Invite links** (`/join/<code>`) reveal only the class and teacher name, are rate limited per
+  IP, and stop working when the code is regenerated or the class archived.
 - **Password reset:** tokens are 32 random bytes, stored as SHA-256 hashes, single-use, valid for
   one hour; issuing a new one invalidates older ones; a reset revokes every session. "Forgot
   password" always answers the same way (no account enumeration) and is rate limited per IP+email.

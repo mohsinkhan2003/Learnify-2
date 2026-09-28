@@ -1,9 +1,10 @@
 import type { Class, User } from "@shared/schema";
-import type { ClassDetailDto, ClassDto, ResetLinkDto, StudentClassDto } from "@shared/api";
+import type { ClassDetailDto, ClassDto, ClassInviteDto, ResetLinkDto, StudentClassDto } from "@shared/api";
 import { AppError, badRequest, conflict, isUniqueViolation, notFound } from "../../lib/errors";
 import { toIso } from "../../lib/http";
 import { createTeacherResetLink } from "../../auth/password-reset";
 import { classesRepository } from "./classes.repository";
+import { usersRepository } from "../../auth/users.repository";
 import { formatJoinCode, generateJoinCode, normalizeJoinCode } from "./join-code";
 
 export function toClassDto(c: Class, memberCount: number): ClassDto {
@@ -91,6 +92,15 @@ export const classesService = {
 
   async listForStudent(student: User): Promise<StudentClassDto[]> {
     return classesRepository.listForStudent(student.id);
+  },
+
+  /** What an invite link shows before sign-up. Only the class and teacher names are revealed. */
+  async invitePreview(rawCode: string): Promise<ClassInviteDto> {
+    const code = normalizeJoinCode(rawCode);
+    const c = code ? await classesRepository.findByJoinCode(code) : undefined;
+    const teacher = c ? await usersRepository.findById(c.teacherId) : undefined;
+    if (!c || !teacher) throw notFound("This invite link isn't valid any more. Ask your teacher for a new one.", "CLASS_CODE_NOT_FOUND");
+    return { code: formatJoinCode(c.joinCode), name: c.name, subject: c.subject, teacherName: teacher.name };
   },
 
   async join(student: User, rawCode: string): Promise<StudentClassDto> {

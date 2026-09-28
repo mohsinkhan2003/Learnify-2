@@ -1,4 +1,4 @@
-import { Router, type Response } from "express";
+import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import type { AuthProviders } from "@shared/api";
 import { config } from "../config/env";
@@ -8,11 +8,13 @@ import { sign, verify } from "../lib/signed-cookie";
 import { rateLimits } from "../middleware/rate-limit";
 import { currentUser, requireAuth } from "../middleware/auth";
 import { hashPassword, verifyPassword } from "./password";
-import { clearSessionCookie, createSession, deleteSession, setSessionCookie } from "./sessions";
+import { clearSessionCookie, createSession, deleteSession, deleteUserSessions, setSessionCookie } from "./sessions";
 import { toPublicUser, usersRepository } from "./users.repository";
 import { createAuthRequest, exchangeCode, isGoogleEnabled, type GoogleProfile } from "./google";
 import { consumeReset, requestEmailReset } from "./password-reset";
 import { isEmailEnabled } from "../lib/email";
+import { consumeVerification, sendVerificationEmail } from "./email-verification";
+import { isEmailVerified, isVerificationRequired } from "./users.repository";
 import { classesRepository } from "../modules/classes/classes.repository";
 import { normalizeJoinCode } from "../modules/classes/join-code";
 
@@ -54,6 +56,8 @@ function parseError(path: string, message: string) {
 }
 const loginSchema = z.object({ email: z.string().trim().min(1).max(255), password: z.string().min(1).max(128) });
 
+const requestOrigin = (req: Request) => `${req.protocol}://${req.get("host")}`;
+
 async function startSession(res: Response, userId: string) {
   const { token, expiresAt } = await createSession(userId);
   setSessionCookie(res, token, expiresAt);
@@ -92,6 +96,7 @@ router.post(
 
     if (cls) await classesRepository.addMember(cls.id, user.id);
     await startSession(res, user.id);
+    if (isVerificationRequired()) await sendVerificationEmail(user, requestOrigin(req));
     req.log.info({ userId: user.id, role: user.role }, "User signed up");
     res.status(201).json(toPublicUser(user));
   }),
@@ -128,7 +133,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { email: address } = parse(z.object({ email }), req.body);
     const user = await usersRepository.findByEmail(address);
-    await requestEmailReset(user, `${req.protocol}://${req.get("host")}`);
+    await requestEmailReset(user, requestOrigin(req));
     // Same response whether or not the account exists (no account enumeration).
     res.json({ ok: true });
   }),
@@ -144,6 +149,42 @@ router.post(
     await startSession(res, user.id);
     req.log.info({ userId: user.id }, "Password reset");
     res.json(toPublicUser(user));
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Email verification
+// ---------------------------------------------------------------------------
+
+router.post(
+  "/verify-email",
+  rateLimits.loginPerIp,
+  asyncHandler(async (req, res) => {
+    const { token } = parse(z.object({ token: z.string().min(20).max(200) }), req.body);
+    const user = await consumeVerification(token);
+    if (!user) {
+      throw badRequest(
+        "This confirmation link has expired or was already used. Sign in to get a new one.",
+        undefined,
+        "VERIFY_LINK_INVALID",
+      );
+    }
+    // The link proves mailbox ownership; sign the user in on this device if they aren't already.
+    if (req.user?.id !== user.id) await startSession(res, user.id);
+    req.log.info({ userId: user.id }, "Email verified");
+    res.json(toPublicUser(user));
+  }),
+);
+
+router.post(
+  "/verify-email/resend",
+  requireAuth,
+  rateLimits.verificationEmail,
+  asyncHandler(async (req, res) => {
+    const user = currentUser(req);
+    if (isEmailVerified(user)) return res.json({ ok: true, alreadyVerified: true });
+    await sendVerificationEmail(user, requestOrigin(req));
+    res.json({ ok: true });
   }),
 );
 
@@ -208,7 +249,13 @@ router.get(
     if (!user) {
       const existing = await usersRepository.findByEmail(profile.email);
       // Google has verified this email address, so linking to the matching account is safe.
-      if (existing) user = await usersRepository.linkGoogle(existing.id, profile.googleId, profile.avatar);
+      if (existing) {
+        // An unconfirmed account may have been registered by someone else with this address
+        // (pre-hijacking): drop its password and sessions so only the Google identity remains.
+        const unconfirmed = !existing.emailVerifiedAt;
+        user = await usersRepository.linkGoogle(existing.id, profile.googleId, profile.avatar, { dropPassword: unconfirmed });
+        if (unconfirmed) await deleteUserSessions(existing.id);
+      }
     }
 
     if (user) {
@@ -238,7 +285,11 @@ router.post(
   asyncHandler(async (req, res) => {
     const profile = verify<GoogleProfile>(req.cookies?.[PENDING_COOKIE], requireGoogle());
     if (!profile) throw unauthorized("Your Google sign-in expired. Please try again.", "GOOGLE_SIGNUP_EXPIRED");
-    const data = parse(z.intersection(z.object({ name: name.optional() }), profileSchema), req.body);
+    const data = parse(
+      z.intersection(z.object({ name: name.optional(), classCode: z.string().trim().max(20).optional().or(z.literal("")) }), profileSchema),
+      req.body,
+    );
+    const cls = data.role === "student" ? await resolveClassCode(data.classCode || undefined) : null;
 
     let user;
     try {
@@ -247,6 +298,7 @@ router.post(
         name: data.name ?? profile.name,
         googleId: profile.googleId,
         avatar: profile.avatar,
+        emailVerifiedAt: new Date(), // Google only returns verified addresses
         role: data.role,
         school: data.school,
         subject: data.role === "teacher" ? data.subject : null,
@@ -256,6 +308,7 @@ router.post(
       throw error;
     }
     res.clearCookie(PENDING_COOKIE, shortCookie);
+    if (cls) await classesRepository.addMember(cls.id, user.id);
     await startSession(res, user.id);
     res.status(201).json(toPublicUser(user));
   }),
