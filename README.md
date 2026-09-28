@@ -29,7 +29,9 @@ npm run db:migrate              # applies migrations/
 npm run dev                     # http://localhost:5000 (API + Vite with HMR)
 ```
 
-Sign up as a teacher and as a student **with the same school name** to see the full flow.
+Sign up as a teacher, create a class (**Classes → New class**) and note its join code; then sign
+up as a student and enter the code (or use **Join a class** on the student home page). Only class
+members see that class's homework.
 With `AI_PROVIDER=mock` the tutor is a deterministic offline stand-in — set `AI_PROVIDER=openai`
 and `OPENAI_API_KEY` for the real tutor.
 

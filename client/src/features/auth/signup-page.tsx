@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, ArrowLeft, Check, GraduationCap, Presentation } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -72,12 +72,7 @@ function ProfileFields({
 }) {
   return (
     <>
-      <FormField
-        id="school"
-        label="School"
-        error={errors.school}
-        hint="Students and teachers at the same school are connected automatically."
-      >
+      <FormField id="school" label="School" error={errors.school}>
         <Input
           {...fieldProps("school", errors.school, "x")}
           autoComplete="organization"
@@ -86,6 +81,25 @@ function ProfileFields({
           onChange={(e) => set("school", e.target.value)}
         />
       </FormField>
+      {role === "student" && values.classCode !== undefined && (
+        <FormField
+          id="classCode"
+          label="Class code (optional)"
+          error={errors.classCode}
+          hint="From your teacher, e.g. ABCD-2345. You can also add it later."
+        >
+          <Input
+            {...fieldProps("classCode", errors.classCode, "x")}
+            autoCapitalize="characters"
+            autoComplete="off"
+            spellCheck={false}
+            className="font-mono uppercase tracking-wider"
+            maxLength={20}
+            value={values.classCode}
+            onChange={(e) => set("classCode", e.target.value)}
+          />
+        </FormField>
+      )}
       {role === "teacher" && (
         <FormField id="subject" label="Subject you teach" error={errors.subject}>
           <Input
@@ -107,7 +121,8 @@ export default function SignupPage() {
   const providers = useAuthProviders();
   const [role, setRole] = useState<Role | null>(null);
   const [step, setStep] = useState<1 | 2>(1);
-  const [values, setValues] = useState({ name: "", email: "", password: "", school: "", subject: "" });
+  const initialCode = new URLSearchParams(useSearch()).get("code") ?? "";
+  const [values, setValues] = useState({ name: "", email: "", password: "", school: "", subject: "", classCode: initialCode });
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
   const set = (k: string, v: string) => setValues((s) => ({ ...s, [k]: v }));
   const errors = { ...fieldErrors(signup.error), ...clientErrors };
@@ -123,7 +138,12 @@ export default function SignupPage() {
     setClientErrors(next);
     if (Object.keys(next).length || !role) return;
     signup.mutate(
-      { ...values, role, subject: role === "teacher" ? values.subject : undefined },
+      {
+        ...values,
+        role,
+        subject: role === "teacher" ? values.subject : undefined,
+        classCode: role === "student" && values.classCode.trim() ? values.classCode.trim() : undefined,
+      },
       { onSuccess: (u) => navigate(homePathFor(u), { replace: true }) },
     );
   };

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link, useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpenCheck, LayoutDashboard, Plus, Users } from "lucide-react";
+import { BookOpenCheck, LayoutDashboard, Plus, School, Users } from "lucide-react";
 import type { TeacherOverview } from "@shared/api";
 import { Logo } from "@/components/common/logo";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ function SkipLink() {
 const TEACHER_NAV = [
   { href: "/teacher", label: "Overview", icon: LayoutDashboard, match: "/teacher" },
   { href: "/teacher/assignments", label: "Assignments", icon: BookOpenCheck, match: "/teacher/assignments/*?" },
+  { href: "/teacher/classes", label: "Classes", icon: School, match: "/teacher/classes/*?" },
   { href: "/teacher/students", label: "Students", icon: Users, match: "/teacher/students" },
 ];
 

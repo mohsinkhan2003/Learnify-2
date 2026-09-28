@@ -93,7 +93,8 @@ const envSchema = z
 export type Env = z.infer<typeof envSchema>;
 
 export function loadConfig(source: NodeJS.ProcessEnv = process.env) {
-  const parsed = envSchema.safeParse(source);
+  // On Render, fall back to the service's public URL so APP_URL needn't be set by hand.
+  const parsed = envSchema.safeParse({ ...source, APP_URL: source.APP_URL || source.RENDER_EXTERNAL_URL || undefined });
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`).join("\n");
     throw new Error(`Invalid environment configuration:\n${issues}`);

@@ -76,8 +76,11 @@ called only from the server. Details are in [ARCHITECTURE.md](ARCHITECTURE.md). 
     transcript.
   - Assignment cards with completion meters.
   - A progressive creation wizard (details → students → tutor guidance → schedule → review) with
-    autosaved drafts, a choice of the whole school or selected students, and time-zone-aware
+    autosaved drafts, a choice of a whole class or selected class members, and time-zone-aware
     scheduling.
+  - Classes with join codes (copy, regenerate, archive), member management, and one-time
+    password reset links for students.
+  - Editing assignments after creation (release time while still scheduled).
   - Assignment detail: evidence table, not-started list, archiving with confirmation.
   - A students page with search and pagination.
   - Dismissible onboarding.
@@ -224,7 +227,8 @@ All variables are documented in [`.env.example`](../.env.example) and validated 
 | Risk | Recommendation |
 |---|---|
 | **The demo's database credential is in git history** (`4b79ac7`) | Rotate the password now; purge history if the repository was ever shared |
-| School membership is self-declared (anyone can type any school name) | For real schools, add verified schools/classes (invite codes or school SSO) before scaling. The data model supports selected audiences already. |
+| Teacher accounts are not verified (student access is now controlled by class join codes) | Add school SSO or admin approval of teachers before scaling beyond pilots |
+| Password-reset emails need an email provider | Set `RESEND_API_KEY` + `EMAIL_FROM`; without them teachers create reset links for students, and teachers need an admin to reset theirs |
 | No admin/support role | Needed to run data export/deletion (service is ready) and to handle safeguarding escalation |
 | The real OpenAI tutor hasn't been run in this environment (tests use the mock) | Run a staging session with `AI_PROVIDER=openai`, review tone, check the JSON adherence rate, tune the prompts |
 | Voice was tested only with a fake microphone in headless Chromium | Test on real devices: iOS Safari, Android Chrome, Chromebooks, Firefox (recorder fallback) |
@@ -306,4 +310,4 @@ docker build -t learnify . && docker run --env-file .env.production -p 5000:5000
 
 **Before launch:** complete the credential rotation, the staging checks above and the
 legal/privacy review. With those done, the application is in a sound state to pilot with real
-schools. For wider rollout, prioritise verified school/class membership and an admin role.
+schools. For wider rollout, prioritise teacher verification (school SSO) and an admin role.

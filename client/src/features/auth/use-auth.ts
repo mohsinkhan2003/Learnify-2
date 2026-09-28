@@ -31,6 +31,7 @@ export interface SignupInput {
   role: "teacher" | "student";
   school: string;
   subject?: string;
+  classCode?: string;
 }
 
 export function useLogin() {
@@ -50,6 +51,14 @@ export function useSignup() {
 export function useCompleteGoogleSignup() {
   return useMutation({
     mutationFn: (input: Omit<SignupInput, "email" | "password">) => apiPost<PublicUser>("/api/auth/google/complete", input),
+    onSuccess: establish,
+  });
+}
+
+/** Sets a new password from a reset link and signs in (all other sessions are revoked server-side). */
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: (input: { token: string; password: string }) => apiPost<PublicUser>("/api/auth/password/reset", input),
     onSuccess: establish,
   });
 }

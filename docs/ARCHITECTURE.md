@@ -51,7 +51,12 @@ logger, http helpers), `middleware/` and `policies/`.
 | `GET /api/teacher/assignments/:id` | teacher | stats, per-student progress + insights, not-started list |
 | `POST /api/teacher/assignments/:id/archive` · `unarchive` | teacher | soft archive |
 | `GET /api/teacher/assignments/:id/students/:studentId/messages` | teacher | transcript |
-| `GET /api/teacher/students` · `roster` | teacher | school roster with activity |
+| `PATCH /api/teacher/assignments/:id` | teacher | edit topic/subject/grade/guidance/due date; release time only while scheduled |
+| `GET/POST /api/teacher/classes`, `GET/PATCH /:id`, `POST /:id/code` | teacher | classes, join codes (regenerate), rename/archive |
+| `DELETE /api/teacher/classes/:id/members/:studentId`, `POST …/reset-link` | teacher | remove a student / one-time password reset link |
+| `GET /api/teacher/students` | teacher | students in the teacher's classes with activity |
+| `GET /api/student/classes`, `POST /api/student/classes/join` | student | my classes / join with a code |
+| `POST /api/auth/password/forgot` · `reset` | – | email reset link (when email is configured) / set new password |
 | `GET /api/student/assignments` · `/:id` | student | visible assignments / tutor session |
 | `POST /api/student/assignments/:id/session` · `messages` · `heartbeat` · `complete` | student | tutoring |
 | `POST /api/student/transcriptions` | student | audio → text fallback |
@@ -75,7 +80,14 @@ Key decisions:
 - **Soft archive** (`assignments.archived_at`) instead of deletes; deleting a teacher archives
   their assignments rather than cascading away students' work.
 - **Assignment visibility** = released (`notification_time ≤ now`) ∧ not archived ∧ in audience
-  (teacher's school, or selected recipients). Legacy demo rows without a school stay visible.
+  (members of the assignment's class, or selected recipients who are also still class members).
+  Legacy assignments created before classes existed keep the old school-name audience so existing
+  data isn't lost; legacy demo rows without a school stay visible.
+- **Classes:** `classes` (owned by one teacher, unique 8-character join code from an unambiguous
+  alphabet, shown as `XXXX-XXXX`, soft-archived) and `class_members`. Regenerating a code or
+  archiving a class stops new joins; removing a member revokes access immediately.
+- **Password reset:** `password_reset_tokens` stores SHA-256 hashes of single-use, one-hour
+  tokens. Using one sets the password and revokes all of the user's sessions.
 - `chat_messages.assignment_id` stays `varchar` without FK: demo data contains orphaned rows and
   converting would need destructive cleanup. Access always goes through the assignment first.
 - Indexes follow actual queries: teacher lists (`teacher_id, created_at`), student visibility
@@ -100,7 +112,7 @@ These are computed in `modules/analytics/` and shown identically everywhere.
 
 | Metric | Definition |
 |---|---|
-| Eligible students | students in the audience: everyone at the teacher's school (audience *school*) or the selected recipients; never fewer than students who started |
+| Eligible students | students in the audience: the class's members (audience *class*), the selected recipients, or — for legacy assignments — everyone at the teacher's school; never fewer than students who started |
 | Started | progress status ≠ `not_started` (a session was opened) |
 | Completed | status `completed` (student handed in after the tutor's summary) |
 | Completion rate | completed ÷ eligible; overview sums over active (released, not archived) assignments |

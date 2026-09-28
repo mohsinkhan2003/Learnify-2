@@ -1,23 +1,33 @@
 import { expect, test } from "@playwright/test";
-import { expectAccessible, sendTyped, signUp, unique } from "./helpers";
+import { createClassWithAssignment, expectAccessible, sendTyped, signUp, unique } from "./helpers";
 
 test("teacher assigns → student completes a tutoring session → teacher sees progress", async ({ browser }) => {
   const id = unique();
   const school = `E2E School ${id}`;
   const topic = `Photosynthesis ${id}`;
 
-  // --- Teacher creates an assignment through the wizard
+  // --- Teacher creates a class, then an assignment through the wizard
   const teacherCtx = await browser.newContext();
   const teacher = await teacherCtx.newPage();
   await signUp(teacher, { role: "teacher", name: "Tess Teacher", email: `teacher${id}@example.com`, school, subject: "Biology" });
   await expect(teacher.getByRole("heading", { name: /Good (morning|afternoon|evening), Tess/ })).toBeVisible();
   await expectAccessible(teacher);
 
+  await teacher.getByRole("link", { name: "Classes" }).first().click();
+  await teacher.getByRole("button", { name: "New class" }).first().click();
+  await teacher.getByLabel("Class name").fill("Year 10 Biology");
+  await teacher.getByRole("button", { name: "Create class" }).click();
+  await expect(teacher.getByRole("heading", { name: "Year 10 Biology" })).toBeVisible();
+  const code = (await teacher.getByLabel(/^Join code/).textContent())!.trim();
+  expect(code).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+  await expectAccessible(teacher);
+
   await teacher.getByRole("link", { name: "New assignment" }).first().click();
   await teacher.getByLabel("Topic").fill(topic);
   await teacher.getByLabel("Year / grade").fill("Year 10");
   await teacher.getByRole("button", { name: /Continue/ }).click();
-  await expect(teacher.getByRole("radio", { name: /Everyone at my school/ })).toHaveAttribute("aria-checked", "true");
+  await expect(teacher.getByRole("radio", { name: /Year 10 Biology/ })).toHaveAttribute("aria-checked", "true");
+  await expect(teacher.getByRole("radio", { name: /The whole class/ })).toHaveAttribute("aria-checked", "true");
   await teacher.getByRole("button", { name: /Continue/ }).click();
   await teacher.getByLabel("Guidance for the tutor").fill("Use everyday examples.");
   await teacher.getByRole("button", { name: /Continue/ }).click();
@@ -27,10 +37,16 @@ test("teacher assigns → student completes a tutoring session → teacher sees 
   await expect(teacher.getByRole("heading", { name: topic })).toBeVisible();
   await expect(teacher.getByText("No one has started yet")).toBeVisible();
 
-  // --- Student at the same school completes it
+  // --- Student at the same school but NOT in the class sees nothing
+  const outsider = await (await browser.newContext()).newPage();
+  await signUp(outsider, { role: "student", name: "Olly Outsider", email: `outsider${id}@example.com`, school });
+  await expect(outsider.getByText("No homework right now")).toBeVisible();
+  await expect(outsider.getByText("You're not in a class yet")).toBeVisible();
+
+  // --- Student who signs up with the class code completes it
   const studentCtx = await browser.newContext();
   const student = await studentCtx.newPage();
-  await signUp(student, { role: "student", name: "Sam Student", email: `student${id}@example.com`, school });
+  await signUp(student, { role: "student", name: "Sam Student", email: `student${id}@example.com`, school, classCode: code.toLowerCase() });
   const card = student.getByRole("link", { name: new RegExp(topic) });
   await expect(card).toBeVisible();
   await expectAccessible(student);
@@ -68,6 +84,55 @@ test("teacher assigns → student completes a tutoring session → teacher sees 
   await expect(row.getByText("Completed")).toBeVisible();
   await row.getByRole("button", { name: "View chat" }).click();
   await expect(teacher.getByRole("dialog").getByText("Plants use sunlight to make food")).toBeVisible();
+  await teacher.keyboard.press("Escape");
+
+  // --- Teacher edits the assignment after release
+  await teacher.getByRole("button", { name: "Edit" }).click();
+  await teacher.getByRole("dialog").getByLabel("Topic").fill(`${topic} (revised)`);
+  await teacher.getByRole("button", { name: "Save changes" }).click();
+  await expect(teacher.getByRole("heading", { name: `${topic} (revised)` })).toBeVisible();
+
+  // --- The outsider joins later with the code and now sees it
+  await outsider.getByRole("button", { name: "Join a class" }).click();
+  await outsider.getByLabel("Class code").fill(code);
+  await outsider.getByRole("button", { name: "Join class" }).click();
+  await expect(outsider.getByRole("link", { name: new RegExp(`${topic} \\(revised\\)`) })).toBeVisible();
+});
+
+test("password reset via a teacher-generated link", async ({ browser }) => {
+  const id = unique();
+  const teacher = await (await browser.newContext()).newPage();
+  await signUp(teacher, { role: "teacher", name: "Rhea", email: `rhea${id}@example.com`, school: `Reset ${id}`, subject: "History" });
+  const code = await createClassWithAssignment(teacher, { topic: "Romans", subject: "History", grade: "Year 7" });
+
+  const studentCtx = await browser.newContext();
+  const student = await studentCtx.newPage();
+  await signUp(student, { role: "student", name: "Rob", email: `rob${id}@example.com`, school: `Reset ${id}`, classCode: code });
+
+  await teacher.goto("/teacher/classes");
+  await teacher.getByRole("link", { name: /History class/ }).click();
+  await teacher.getByRole("row", { name: /Rob/ }).getByRole("button", { name: "Reset password" }).click();
+  const url = await teacher.getByRole("dialog").getByLabel("Reset link").inputValue();
+  expect(url).toContain("/reset-password?token=");
+
+  // The student's existing session is revoked once the password changes.
+  const fresh = await (await browser.newContext()).newPage();
+  await fresh.goto(url);
+  await fresh.getByLabel("New password").fill("a brand new password");
+  await fresh.getByLabel("Confirm password").fill("a brand new password");
+  await fresh.getByRole("button", { name: "Set password and sign in" }).click();
+  await fresh.waitForURL("**/student");
+  await expect(fresh.getByRole("link", { name: /Romans/ })).toBeVisible();
+
+  await student.reload();
+  await student.waitForURL(/\/login/);
+
+  // The link only works once.
+  await fresh.goto(url);
+  await fresh.getByLabel("New password").fill("another password 123");
+  await fresh.getByLabel("Confirm password").fill("another password 123");
+  await fresh.getByRole("button", { name: "Set password and sign in" }).click();
+  await expect(fresh.getByText(/expired or was already used/)).toBeVisible();
 });
 
 test("role separation in the UI: students are redirected away from teacher pages", async ({ page }) => {
@@ -94,7 +159,7 @@ test("signed-out users are sent to sign in and returned afterwards", async ({ pa
 });
 
 test("public pages are accessible", async ({ page }) => {
-  for (const path of ["/", "/login", "/signup"]) {
+  for (const path of ["/", "/login", "/signup", "/forgot-password", "/reset-password?token=x"]) {
     await page.goto(path);
     await expectAccessible(page);
   }
@@ -105,23 +170,11 @@ test("network loss while sending: message is kept, can be retried, nothing is du
   const school = `Offline ${id}`;
   const teacher = await (await browser.newContext()).newPage();
   await signUp(teacher, { role: "teacher", name: "Olga", email: `olga${id}@example.com`, school, subject: "Chemistry" });
-  await teacher.evaluate(async () => {
-    await fetch("/api/teacher/assignments", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        topic: "Atoms",
-        subject: "Chemistry",
-        grade: "Year 8",
-        instructions: "",
-        releaseAt: new Date().toISOString(),
-      }),
-    });
-  });
+  const code = await createClassWithAssignment(teacher, { topic: "Atoms", subject: "Chemistry", grade: "Year 8" });
 
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
-  await signUp(page, { role: "student", name: "Omar", email: `omar${id}@example.com`, school });
+  await signUp(page, { role: "student", name: "Omar", email: `omar${id}@example.com`, school, classCode: code });
   await page.getByRole("link", { name: /Atoms/ }).click();
   await page.getByRole("button", { name: /Type instead/ }).click();
   await expect(page.getByText(/How are you today/)).toBeVisible();

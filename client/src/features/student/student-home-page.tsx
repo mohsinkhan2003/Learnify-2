@@ -10,6 +10,7 @@ import { Meter, StatusBadge } from "@/components/common/metrics";
 import { EmptyState, ErrorState, ListSkeleton } from "@/components/common/states";
 import { useAuth } from "@/features/auth/use-auth";
 import { usePush } from "@/features/notifications/use-push";
+import { MyClasses } from "./join-class";
 import { firstName, formatShortDate, greeting } from "@/lib/format";
 import { queryKeys } from "@/lib/query";
 import { cn } from "@/lib/utils";
@@ -196,23 +197,30 @@ export default function StudentHomePage() {
           <h2 id="how-title" className="text-card-title">
             How it works
           </h2>
-          <ol className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-5">
-            {["Pick your homework", "Talk (or type) to your tutor", "Answer its questions", "Read your summary", "Press Complete"].map(
-              (s, i) => (
-                <li key={s} className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card text-xs font-semibold text-primary shadow-xs">
-                    {i + 1}
-                  </span>
-                  {s}
-                </li>
-              ),
-            )}
+          <ol className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-3 lg:grid-cols-6">
+            {[
+              "Join your class with its code",
+              "Pick your homework",
+              "Talk (or type) to your tutor",
+              "Answer its questions",
+              "Read your summary",
+              "Press Complete",
+            ].map((s, i) => (
+              <li key={s} className="flex items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card text-xs font-semibold text-primary shadow-xs">
+                  {i + 1}
+                </span>
+                {s}
+              </li>
+            ))}
           </ol>
           <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
             <Mic className="size-3.5" aria-hidden /> Tip: voice works best in Chrome, Edge or Safari. You can always type instead.
           </p>
         </section>
       )}
+
+      <MyClasses />
 
       <NotificationPrompt />
 
@@ -224,7 +232,7 @@ export default function StudentHomePage() {
         <EmptyState
           icon={<PartyPopper />}
           title="No homework right now"
-          description="When your teacher sets something, it'll show up here — and we'll let you know if notifications are on."
+          description="When your teacher sets something for your class, it'll show up here — and we'll let you know if notifications are on."
         />
       ) : (
         <div className="space-y-8">

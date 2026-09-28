@@ -15,8 +15,8 @@ const ONBOARDING_KEY = "learnify-teacher-onboarding-dismissed";
 
 function Onboarding({ onDismiss }: { onDismiss: () => void }) {
   const steps = [
-    { title: "Create an assignment", body: "Pick a topic and add guidance for the tutor." },
-    { title: "Release it to students", body: "Now or at a scheduled time — students get notified." },
+    { title: "Create a class", body: "Share its join code — students enter it when they sign up." },
+    { title: "Set an assignment", body: "Pick a topic, add tutor guidance, release now or later." },
     { title: "Students work with the tutor", body: "By voice or text, one question at a time." },
     { title: "Review progress", body: "See completion, time spent and who may need help." },
   ];
@@ -49,11 +49,16 @@ function Onboarding({ onDismiss }: { onDismiss: () => void }) {
           </li>
         ))}
       </ol>
-      <Button asChild className="mt-6">
-        <Link href="/teacher/assignments/new">
-          <Plus aria-hidden /> Create your first assignment
-        </Link>
-      </Button>
+      <div className="mt-6 flex flex-wrap gap-2">
+        <Button asChild>
+          <Link href="/teacher/classes">
+            <Plus aria-hidden /> Create a class
+          </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/teacher/assignments/new">New assignment</Link>
+        </Button>
+      </div>
     </section>
   );
 }

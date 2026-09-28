@@ -74,6 +74,11 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </FormField>
+        <div className="-mt-1 text-right">
+          <Link href="/forgot-password" className="text-sm font-medium text-primary hover:underline">
+            Forgot password?
+          </Link>
+        </div>
         <Button type="submit" size="lg" className="w-full" loading={login.isPending} disabled={!email || !password}>
           Sign in
         </Button>

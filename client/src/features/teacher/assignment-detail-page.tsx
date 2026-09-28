@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, ArrowLeft, CalendarClock, ChevronDown, Clock, MessageSquareText, Users } from "lucide-react";
+import { Pencil, Archive, ArchiveRestore, ArrowLeft, CalendarClock, ChevronDown, Clock, MessageSquareText, Users } from "lucide-react";
 import type { AssignmentDto, TeacherAssignmentDetail } from "@shared/api";
 import { PRACTICE_QUESTIONS } from "@shared/tutor";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import { apiPost, errorMessage } from "@/lib/api";
 import { formatDate, formatDuration, formatPercent, formatRelative } from "@/lib/format";
 import { queryClient, queryKeys } from "@/lib/query";
 import { InsightList, TranscriptSheet } from "./components";
+import { EditAssignmentDialog } from "./edit-assignment-dialog";
 
 function ArchiveButton({ assignment }: { assignment: AssignmentDto }) {
   const { toast } = useToast();
@@ -76,6 +77,7 @@ export default function AssignmentDetailPage() {
   const query = useQuery<TeacherAssignmentDetail>({ queryKey: queryKeys.teacherAssignment(id!), refetchInterval: 60_000 });
   const [student, setStudent] = useState<{ id: string; name: string } | null>(null);
   const [showGuidance, setShowGuidance] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   if (query.isLoading) return <FullPageSpinner />;
   if (query.error || !query.data) return <ErrorState error={query.error} onRetry={() => query.refetch()} />;
@@ -108,11 +110,20 @@ export default function AssignmentDetailPage() {
               )}
               <span className="inline-flex items-center gap-1.5">
                 <Users className="size-4" aria-hidden />
-                {assignment.audience === "school" ? "Everyone at your school" : `${recipients.length} selected students`}
+                {assignment.audience === "school"
+                  ? "Everyone at your school (legacy)"
+                  : assignment.audience === "class"
+                    ? `${assignment.className ?? "Class"} · whole class`
+                    : `${assignment.className ?? "Class"} · ${recipients.length} selected student${recipients.length === 1 ? "" : "s"}`}
               </span>
             </div>
           </div>
-          <ArchiveButton assignment={assignment} />
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setEditing(true)}>
+              <Pencil aria-hidden /> Edit
+            </Button>
+            <ArchiveButton assignment={assignment} />
+          </div>
         </div>
       </div>
 
@@ -239,6 +250,7 @@ export default function AssignmentDetailPage() {
       )}
 
       <TranscriptSheet assignmentId={assignment.id} student={student} onClose={() => setStudent(null)} />
+      {editing && <EditAssignmentDialog assignment={assignment} startedCount={stats.started} open={editing} onOpenChange={setEditing} />}
     </div>
   );
 }

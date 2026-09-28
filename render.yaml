@@ -1,0 +1,38 @@
+# Render Blueprint — one-click deploy of Learnify as a single web service.
+# Database: use a free Neon Postgres (Render's free Postgres is deleted after 30 days).
+# See docs/DEPLOYMENT.md → "Free hosting: Render + Neon".
+services:
+  - type: web
+    name: learnify
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    # Migrations are idempotent and guarded by an advisory lock, so running them on every start is safe.
+    startCommand: node dist/migrate.js && node dist/index.js
+    healthCheckPath: /ready
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: DATABASE_POOL_MAX
+        value: "5"
+      - key: AI_PROVIDER
+        value: openai
+      # Secrets — Render asks for these when you create the Blueprint.
+      - key: DATABASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      # Optional: email password-reset links (https://resend.com free tier).
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      # Optional: push notifications (generate with `npx web-push generate-vapid-keys`).
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      # APP_URL defaults to Render's public URL; set it only when you add a custom domain.

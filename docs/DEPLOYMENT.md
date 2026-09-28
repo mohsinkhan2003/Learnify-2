@@ -10,8 +10,62 @@ container or Node 20+: Fly.io, Render, Railway, Google Cloud Run, AWS ECS/App Ru
 | PostgreSQL 14+ | Neon, RDS, Cloud SQL, Supabase, self-hosted. Use TLS (`?sslmode=require`). Enable backups/PITR. |
 | Domain + HTTPS | Terminate TLS at your platform / load balancer. Set `APP_URL=https://your.domain`. |
 | OpenAI API key | With a monthly budget limit set in the OpenAI dashboard. |
+| (optional) Resend API key | `RESEND_API_KEY` + `EMAIL_FROM` to email password-reset links. |
 | (optional) VAPID keys | `npx web-push generate-vapid-keys` for push notifications. |
 | (optional) Google OAuth client | Authorised redirect URI `https://your.domain/api/auth/google/callback`; also set `SESSION_SECRET`. |
+
+## Free hosting: Render + Neon
+
+The cheapest way to run Learnify for a pilot: **Render** (free web service) for the app and
+**Neon** (free Postgres) for the database. Both need no credit card. The only thing you pay for
+is OpenAI usage.
+
+**Why not Vercel or Netlify?** They run serverless functions, not a long-running server.
+Learnify is an Express server with a database connection pool, in-process rate limits, and a
+background job that sends "new homework" notifications at the scheduled release time. Those
+don't work reliably (or at all) on per-request functions without a rewrite.
+
+### 1. Database (Neon)
+
+1. Sign up at <https://neon.tech> → **New project** (pick the region closest to your users; the
+   Render region should match, e.g. both in Frankfurt or both in US East).
+2. On the project dashboard click **Connect**, turn **Connection pooling off** (migrations use
+   a session advisory lock, which pooled connections don't support), and copy the connection
+   string. It looks like `postgresql://user:pass@ep-xxx.eu-central-1.aws.neon.tech/neondb?sslmode=require`.
+
+### 2. App (Render)
+
+1. Sign up at <https://render.com> with GitHub and allow access to this repository.
+2. **New → Blueprint**, pick the repository and branch. Render reads `render.yaml`.
+3. Fill in the secrets it asks for:
+   - `DATABASE_URL` — the Neon string from step 1.
+   - `OPENAI_API_KEY` — from <https://platform.openai.com/api-keys>. Set a monthly budget limit there.
+   - Leave the optional ones (`RESEND_API_KEY`, `EMAIL_FROM`, `VAPID_*`) empty for now.
+4. **Apply**. The first build takes a few minutes; migrations run automatically on every start.
+   Your app is live at `https://learnify-xxxx.onrender.com` (`APP_URL` is picked up automatically
+   from Render's `RENDER_EXTERNAL_URL`; set `APP_URL` yourself only for a custom domain).
+5. Open the URL, sign up as a teacher, create a class, and share its code.
+
+### 3. Optional extras
+
+- **Password-reset emails:** create a free <https://resend.com> account, verify a domain, then set
+  `RESEND_API_KEY` and `EMAIL_FROM="Learnify <no-reply@your-domain>"`. Without it, teachers can
+  still generate reset links for their students from the class page.
+- **Push notifications:** run `npx web-push generate-vapid-keys` locally and set
+  `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`.
+- **Custom domain:** Render → Settings → Custom Domains, then set `APP_URL=https://your.domain`.
+
+### Free-tier limits to know about
+
+- Render's free service **sleeps after 15 minutes without traffic**; the next visit takes about
+  a minute to wake it. Scheduled-release notifications are sent when it next wakes, not exactly
+  on time (the homework itself still appears at the right time). The $7/month Starter plan
+  removes sleeping.
+- Neon's free tier has 0.5 GB storage and suspends idle compute (wakes in under a second) —
+  plenty for a pilot. Its restore history is short on the free plan, so export backups
+  (`pg_dump`) regularly if the data matters.
+- Render free services have 512 MB RAM; `DATABASE_POOL_MAX=5` is set in `render.yaml` to stay
+  well within Neon's connection limit.
 
 ## Build & run with Docker
 

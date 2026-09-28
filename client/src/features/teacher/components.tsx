@@ -54,6 +54,7 @@ export function AssignmentCard({ assignment }: { assignment: TeacherAssignmentLi
             {assignment.subject} · {assignment.grade}
           </p>
           <h3 className="mt-1 line-clamp-2 text-card-title group-hover:text-primary">{assignment.topic}</h3>
+          {assignment.className && <p className="mt-0.5 truncate text-helper">{assignment.className}</p>}
         </div>
         {assignment.status === "scheduled" && <ScheduledBadge />}
         {assignment.status === "archived" && <Badge variant="secondary">Archived</Badge>}

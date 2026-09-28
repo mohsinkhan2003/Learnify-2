@@ -65,6 +65,7 @@ export async function api<T>(method: Method, url: string, body?: unknown, init?:
 export const apiGet = <T>(url: string, init?: RequestInit) => api<T>("GET", url, undefined, init);
 export const apiPost = <T>(url: string, body?: unknown) => api<T>("POST", url, body ?? {});
 export const apiDelete = <T>(url: string, body?: unknown) => api<T>("DELETE", url, body);
+export const apiPatch = <T>(url: string, body: unknown) => api<T>("PATCH", url, body);
 
 /** Field → message map from a VALIDATION_ERROR, for inline form errors. */
 export function fieldErrors(error: unknown): Record<string, string> {

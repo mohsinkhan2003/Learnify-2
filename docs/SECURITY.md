@@ -30,13 +30,20 @@ claims** — see "Needs legal/privacy review" at the end.
   *student* (`middleware/auth.ts`). Role checks are not scattered in handlers.
 - Resource access is decided in **one place**, `policies/assignment-access.ts`:
   teachers only manage assignments they created; students only see released, non-archived
-  assignments in their audience (their school, or the selected recipient list). The SQL filter
+  assignments in their audience: classes they joined with a teacher's code, or the selected
+  recipient list (recipients must also still be class members). The SQL filter
   used for lists is the twin of the in-memory policy and both are unit tested.
 - Other people's resources return **404** (no existence oracle). IDs are validated as UUIDs (400).
 - Students can only act on their own progress: the student id always comes from the session —
   no endpoint accepts a student id for writes. Ownership fields (`teacherId`, `teacherSchool`)
   always come from the session (mass-assignment test).
-- Teachers can only assign students from their own school (server-validated recipient list).
+- Teachers can only assign to their own, non-archived classes, and recipients must be members of
+  that class (server-validated). Student membership only comes from a join code, so typing a
+  school name no longer grants access to anything.
+- **Password reset:** tokens are 32 random bytes, stored as SHA-256 hashes, single-use, valid for
+  one hour; issuing a new one invalidates older ones; a reset revokes every session. "Forgot
+  password" always answers the same way (no account enumeration) and is rate limited per IP+email.
+  Teachers can create a reset link only for students in their own classes.
 - Integration tests cover student A vs B, teacher A vs B, cross-school, selected audiences,
   scheduled/archived visibility and role separation (`tests/integration/authorization.test.ts`).
 
@@ -114,8 +121,9 @@ authorised admin/support workflow once roles and policy are agreed.
 - Conversation retention period and deletion SLA; who may request deletion/export.
 - Safeguarding escalation: whether flagged messages should notify a designated safeguarding lead,
   and whether moderation should fail closed.
-- School verification: today any user can claim any school name. Schools that need hard tenant
-  isolation should get verified schools/classes (invite codes or SSO) — see the readiness report.
+- Class membership is controlled by join codes. Teachers themselves are not verified (anyone can
+  sign up as a teacher and create a class); schools that need that should add school SSO or an
+  admin approval step.
 
 ## Reporting a vulnerability
 

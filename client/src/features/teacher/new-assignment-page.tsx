@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Check, Pencil, Search, Send, Users, UserCheck } from "lucide-react";
-import type { AssignmentDto, CreateAssignmentInput } from "@shared/api";
+import { ArrowLeft, ArrowRight, Check, Pencil, Plus, Search, Send, Users, UserCheck } from "lucide-react";
+import type { AssignmentDto, ClassDetailDto, ClassDto, CreateAssignmentInput } from "@shared/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,12 +15,14 @@ import { errorMessage, fieldErrors, apiPost } from "@/lib/api";
 import { formatDate, localInputToIso, toLocalInputValue } from "@/lib/format";
 import { queryClient, queryKeys } from "@/lib/query";
 import { cn } from "@/lib/utils";
+import { CreateClassDialog } from "./classes-page";
 
 interface Draft {
   topic: string;
   subject: string;
   grade: string;
-  audience: "school" | "selected";
+  classId: string;
+  audience: "class" | "selected";
   studentIds: string[];
   instructions: string;
   releaseMode: "now" | "later";
@@ -28,7 +30,7 @@ interface Draft {
   dueAt: string; // datetime-local value or ""
 }
 
-const STEPS = ["Details", "Students", "Tutor guidance", "Schedule", "Review"] as const;
+const STEPS = ["Details", "Class", "Tutor guidance", "Schedule", "Review"] as const;
 const GRADES = ["Year 7", "Year 8", "Year 9", "Year 10", "Year 11", "Year 12", "Year 13"];
 const GUIDANCE_IDEAS = [
   "Focus on real-world examples.",
@@ -46,7 +48,8 @@ function emptyDraft(subject: string): Draft {
     topic: "",
     subject,
     grade: "",
-    audience: "school",
+    classId: "",
+    audience: "class",
     studentIds: [],
     instructions: "",
     releaseMode: "now",
@@ -62,7 +65,8 @@ function validate(step: number, d: Draft): Record<string, string> {
     if (d.subject.trim().length < 2) e.subject = "Please enter a subject";
     if (!d.grade.trim()) e.grade = "Please choose a year or grade";
   }
-  if (step === 1 && d.audience === "selected" && d.studentIds.length === 0) e.studentIds = "Choose at least one student";
+  if (step === 1 && !d.classId) e.classId = "Choose a class (or create one)";
+  if (step === 1 && d.classId && d.audience === "selected" && d.studentIds.length === 0) e.studentIds = "Choose at least one student";
   if (step === 2 && d.instructions.length > 2000) e.instructions = "Please keep guidance under 2000 characters";
   if (step === 3) {
     const release = d.releaseMode === "now" ? new Date() : new Date(d.releaseAt);
@@ -74,14 +78,21 @@ function validate(step: number, d: Draft): Record<string, string> {
   return e;
 }
 
-function StudentPicker({ draft, update, error }: { draft: Draft; update: (p: Partial<Draft>) => void; error?: string }) {
-  const { user } = useAuth();
-  const roster = useQuery<{ id: string; name: string; email: string }[]>({
-    queryKey: queryKeys.roster,
-    enabled: draft.audience === "selected",
-  });
+function ClassAndStudentPicker({
+  draft,
+  update,
+  errors,
+}: {
+  draft: Draft;
+  update: (p: Partial<Draft>) => void;
+  errors: Record<string, string>;
+}) {
+  const classes = useQuery<ClassDto[]>({ queryKey: queryKeys.classes });
+  const detail = useQuery<ClassDetailDto>({ queryKey: queryKeys.classDetail(draft.classId), enabled: !!draft.classId });
+  const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState("");
-  const filtered = (roster.data ?? []).filter((s) => s.name.toLowerCase().includes(search.toLowerCase()));
+  const members = detail.data?.members ?? [];
+  const filtered = members.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()));
   const selected = new Set(draft.studentIds);
 
   const Option = ({ value, icon: Icon, title, body }: { value: Draft["audience"]; icon: typeof Users; title: string; body: string }) => (
@@ -103,61 +114,125 @@ function StudentPicker({ draft, update, error }: { draft: Draft; update: (p: Par
     </button>
   );
 
+  // With exactly one class there's nothing to choose.
+  const onlyClassId = classes.data?.length === 1 ? classes.data[0].id : null;
+  useEffect(() => {
+    if (onlyClassId && !draft.classId) update({ classId: onlyClassId, studentIds: [] });
+  }, [onlyClassId, draft.classId, update]);
+
   return (
-    <div className="space-y-5">
-      <div role="radiogroup" aria-label="Who should do this assignment" className="grid gap-3 sm:grid-cols-2">
-        <Option
-          value="school"
-          icon={Users}
-          title="Everyone at my school"
-          body={`All students at ${user?.school ?? "your school"}, including ones who join later.`}
-        />
-        <Option value="selected" icon={UserCheck} title="Choose students" body="Only the students you pick will see it." />
-      </div>
-      {draft.audience === "selected" && (
-        <div className="rounded-lg border bg-card">
-          <div className="flex items-center gap-3 border-b p-3">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-              <Input
-                type="search"
-                aria-label="Search students"
-                placeholder="Search students"
-                className="h-10 pl-9"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <span className="shrink-0 text-sm text-muted-foreground" aria-live="polite">
-              {draft.studentIds.length} selected
-            </span>
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-label" id="class-label">
+            Class
+          </p>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setCreating(true)}>
+            <Plus aria-hidden /> New class
+          </Button>
+        </div>
+        {classes.isLoading ? (
+          <p className="text-helper">Loading your classes…</p>
+        ) : classes.data?.length === 0 ? (
+          <div className="rounded-lg border border-dashed p-5 text-center">
+            <p className="text-label">You don't have any classes yet</p>
+            <p className="mt-1 text-helper">Create a class, then share its join code with your students.</p>
+            <Button type="button" className="mt-4" onClick={() => setCreating(true)}>
+              <Plus aria-hidden /> Create a class
+            </Button>
           </div>
-          <ul className="max-h-72 overflow-y-auto p-2" aria-label="Students">
-            {roster.isLoading && <li className="p-3 text-helper">Loading students…</li>}
-            {roster.data?.length === 0 && <li className="p-3 text-helper">No students at your school have signed up yet.</li>}
-            {filtered.map((s) => (
-              <li key={s.id}>
-                <label className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-muted">
-                  <Checkbox
-                    checked={selected.has(s.id)}
-                    onCheckedChange={(c) =>
-                      update({ studentIds: c ? [...draft.studentIds, s.id] : draft.studentIds.filter((id) => id !== s.id) })
-                    }
-                  />
-                  <span className="text-sm">
-                    <span className="font-medium">{s.name}</span> <span className="text-muted-foreground">{s.email}</span>
-                  </span>
-                </label>
-              </li>
+        ) : (
+          <div role="radiogroup" aria-labelledby="class-label" className="grid gap-3 sm:grid-cols-2">
+            {classes.data?.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                role="radio"
+                aria-checked={draft.classId === c.id}
+                onClick={() => update({ classId: c.id, studentIds: [] })}
+                className={cn(
+                  "rounded-lg border bg-card p-4 text-left transition-all hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  draft.classId === c.id && "border-primary ring-4 ring-primary/10",
+                )}
+              >
+                <span className="block text-card-title">{c.name}</span>
+                <span className="block text-helper">
+                  {c.memberCount} student{c.memberCount === 1 ? "" : "s"}
+                  {c.subject ? ` · ${c.subject}` : ""}
+                </span>
+              </button>
             ))}
-          </ul>
+          </div>
+        )}
+        {errors.classId && (
+          <p role="alert" className="text-sm font-medium text-destructive">
+            {errors.classId}
+          </p>
+        )}
+      </div>
+
+      {draft.classId && (
+        <div className="space-y-4">
+          <div role="radiogroup" aria-label="Who in the class" className="grid gap-3 sm:grid-cols-2">
+            <Option value="class" icon={Users} title="The whole class" body="Everyone in the class, including students who join later." />
+            <Option value="selected" icon={UserCheck} title="Choose students" body="Only the students you pick will see it." />
+          </div>
+          {draft.audience === "class" && detail.data && detail.data.members.length === 0 && (
+            <p className="rounded-md bg-info-soft px-3 py-2 text-sm text-info">
+              No one has joined this class yet. Share the code <strong className="font-mono">{detail.data.class.joinCode}</strong> —
+              students who join later will still see this assignment.
+            </p>
+          )}
+          {draft.audience === "selected" && (
+            <div className="rounded-lg border bg-card">
+              <div className="flex items-center gap-3 border-b p-3">
+                <div className="relative flex-1">
+                  <Search
+                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <Input
+                    type="search"
+                    aria-label="Search students"
+                    placeholder="Search students"
+                    className="h-10 pl-9"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+                <span className="shrink-0 text-sm text-muted-foreground" aria-live="polite">
+                  {draft.studentIds.length} selected
+                </span>
+              </div>
+              <ul className="max-h-72 overflow-y-auto p-2" aria-label="Students">
+                {detail.isLoading && <li className="p-3 text-helper">Loading students…</li>}
+                {detail.data?.members.length === 0 && <li className="p-3 text-helper">No students have joined this class yet.</li>}
+                {filtered.map((s) => (
+                  <li key={s.id}>
+                    <label className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-muted">
+                      <Checkbox
+                        checked={selected.has(s.id)}
+                        onCheckedChange={(c) =>
+                          update({ studentIds: c ? [...draft.studentIds, s.id] : draft.studentIds.filter((id) => id !== s.id) })
+                        }
+                      />
+                      <span className="text-sm">
+                        <span className="font-medium">{s.name}</span> <span className="text-muted-foreground">{s.email}</span>
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {errors.studentIds && (
+            <p role="alert" className="text-sm font-medium text-destructive">
+              {errors.studentIds}
+            </p>
+          )}
         </div>
       )}
-      {error && (
-        <p role="alert" className="text-sm font-medium text-destructive">
-          {error}
-        </p>
-      )}
+      <CreateClassDialog open={creating} onOpenChange={setCreating} onCreated={(c) => update({ classId: c.id, studentIds: [] })} />
     </div>
   );
 }
@@ -170,13 +245,21 @@ export default function NewAssignmentPage() {
   const [draft, setDraft] = useState<Draft>(() => {
     try {
       const saved = localStorage.getItem(key);
-      if (saved) return { ...emptyDraft(user?.subject ?? ""), ...JSON.parse(saved) };
+      if (saved) {
+        const restored = { ...emptyDraft(user?.subject ?? ""), ...JSON.parse(saved) } as Draft;
+        // Drafts saved before classes existed used a "school" audience.
+        if (restored.audience !== "class" && restored.audience !== "selected") restored.audience = "class";
+        const preset = new URLSearchParams(window.location.search).get("class");
+        return preset ? { ...restored, classId: preset, studentIds: [] } : restored;
+      }
     } catch {
       /* ignore */
     }
-    return emptyDraft(user?.subject ?? "");
+    const preset = new URLSearchParams(window.location.search).get("class");
+    return { ...emptyDraft(user?.subject ?? ""), classId: preset ?? "" };
   });
   const [step, setStep] = useState(0);
+  const classes = useQuery<ClassDto[]>({ queryKey: queryKeys.classes });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const dirty = draft.topic !== "" || draft.instructions !== "";
 
@@ -207,6 +290,7 @@ export default function NewAssignmentPage() {
       subject: draft.subject.trim(),
       grade: draft.grade.trim(),
       instructions: draft.instructions.trim(),
+      classId: draft.classId,
       audience: draft.audience,
       studentIds: draft.audience === "selected" ? draft.studentIds : undefined,
       releaseAt: draft.releaseMode === "now" ? new Date().toISOString() : localInputToIso(draft.releaseAt),
@@ -239,7 +323,7 @@ export default function NewAssignmentPage() {
       const f = fieldErrors(e);
       if (Object.keys(f).length) {
         setErrors(f);
-        setStep(f.topic || f.subject || f.grade ? 0 : f.studentIds ? 1 : f.instructions ? 2 : 3);
+        setStep(f.topic || f.subject || f.grade ? 0 : f.studentIds || f.classId ? 1 : f.instructions ? 2 : 3);
       }
     },
   });
@@ -347,7 +431,7 @@ export default function NewAssignmentPage() {
         {step === 1 && (
           <div className="space-y-5">
             <h2 className="text-section-title">Who should do it?</h2>
-            <StudentPicker draft={draft} update={update} error={errors.studentIds} />
+            <ClassAndStudentPicker draft={draft} update={update} errors={errors} />
           </div>
         )}
 
@@ -451,7 +535,11 @@ export default function NewAssignmentPage() {
                 { label: "Topic", value: `${draft.topic} · ${draft.subject} · ${draft.grade}`, step: 0 },
                 {
                   label: "Students",
-                  value: draft.audience === "school" ? `Everyone at ${user?.school}` : `${draft.studentIds.length} selected students`,
+                  value: `${classes.data?.find((c) => c.id === draft.classId)?.name ?? "Class"} · ${
+                    draft.audience === "class"
+                      ? "whole class"
+                      : `${draft.studentIds.length} selected student${draft.studentIds.length === 1 ? "" : "s"}`
+                  }`,
                   step: 1,
                 },
                 { label: "Tutor guidance", value: draft.instructions || "Default approach", step: 2 },

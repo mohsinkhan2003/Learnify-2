@@ -7,13 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState, ErrorState, ListSkeleton, PageHeader } from "@/components/common/states";
-import { useAuth } from "@/features/auth/use-auth";
 import { apiGet } from "@/lib/api";
 import { formatDuration, formatRelative } from "@/lib/format";
 import { queryKeys } from "@/lib/query";
 
 export default function StudentsPage() {
-  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const deferred = useDeferredValue(search.trim());
   const query = useInfiniteQuery({
@@ -27,10 +25,7 @@ export default function StudentsPage() {
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <PageHeader
-        title="Students"
-        description={`Students at ${user?.school ?? "your school"} and their activity on your current assignments.`}
-      />
+      <PageHeader title="Students" description="Students in your classes and their activity on your current assignments." />
       <div className="relative max-w-sm">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
         <Input
@@ -50,9 +45,7 @@ export default function StudentsPage() {
         <EmptyState
           icon={<Users />}
           title={deferred ? "No students match your search" : "No students yet"}
-          description={
-            deferred ? "Try a different name." : `Students appear here when they sign up with the school name "${user?.school}".`
-          }
+          description={deferred ? "Try a different name." : "Students appear here once they join one of your classes with its code."}
         />
       ) : (
         <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
@@ -74,6 +67,7 @@ export default function StudentsPage() {
                     <TableCell>
                       <p className="font-medium">{s.name}</p>
                       <p className="text-xs text-muted-foreground">{s.email}</p>
+                      <p className="text-xs text-muted-foreground">{s.classes.join(", ")}</p>
                     </TableCell>
                     <TableCell className="tabular text-right">{s.assignmentsStarted}</TableCell>
                     <TableCell className="tabular text-right">{s.assignmentsCompleted}</TableCell>

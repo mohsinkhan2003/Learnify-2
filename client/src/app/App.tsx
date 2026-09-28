@@ -24,6 +24,10 @@ const AssignmentsPage = lazy(() => import("@/features/teacher/assignments-page")
 const NewAssignmentPage = lazy(() => import("@/features/teacher/new-assignment-page"));
 const AssignmentDetailPage = lazy(() => import("@/features/teacher/assignment-detail-page"));
 const StudentsPage = lazy(() => import("@/features/teacher/students-page"));
+const ClassesPage = lazy(() => import("@/features/teacher/classes-page"));
+const ClassDetailPage = lazy(() => import("@/features/teacher/class-detail-page"));
+const ForgotPasswordPage = lazy(() => import("@/features/auth/password-pages").then((m) => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import("@/features/auth/password-pages").then((m) => ({ default: m.ResetPasswordPage })));
 const StudentHomePage = lazy(() => import("@/features/student/student-home-page"));
 const TutorSessionPage = lazy(() => import("@/features/tutoring/tutor-session-page"));
 
@@ -78,6 +82,8 @@ function TeacherArea() {
             <Route path="/teacher/assignments/new" component={NewAssignmentPage} />
             <Route path="/teacher/assignments/:id" component={AssignmentDetailPage} />
             <Route path="/teacher/students" component={StudentsPage} />
+            <Route path="/teacher/classes" component={ClassesPage} />
+            <Route path="/teacher/classes/:id" component={ClassDetailPage} />
             <Route component={NotFound} />
           </Switch>
         </Suspense>
@@ -102,6 +108,8 @@ function Routes() {
           </RedirectIfSignedIn>
         </Route>
         <Route path="/signup/complete" component={GoogleCompletePage} />
+        <Route path="/forgot-password" component={ForgotPasswordPage} />
+        <Route path="/reset-password" component={ResetPasswordPage} />
 
         <Route path="/teacher" component={TeacherArea} />
         <Route path="/teacher/*" component={TeacherArea} />
