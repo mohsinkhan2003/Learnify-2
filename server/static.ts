@@ -23,6 +23,9 @@ export function serveStatic(app: Express) {
     }),
   );
 
+  // Browsers request /favicon.ico regardless of <link rel="icon">.
+  app.get("/favicon.ico", (_req, res) => res.sendFile(path.resolve(distPath, "icon-192.png")));
+
   // SPA fallback
   app.use("*", (_req, res) => {
     res.setHeader("Cache-Control", "no-cache");

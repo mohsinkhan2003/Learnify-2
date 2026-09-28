@@ -83,6 +83,8 @@ const config = {
     { src: "^/assets/(.*)$", headers: { ...securityHeaders, "Cache-Control": "public, max-age=31536000, immutable" }, continue: true },
     { src: "^/(?!assets/)(.*)$", headers: { ...securityHeaders, "Cache-Control": "no-cache" }, continue: true },
     { handle: "filesystem" },
+    // Browsers request /favicon.ico regardless of <link rel="icon">.
+    { src: "^/favicon\\.ico$", dest: "/icon-192.png" },
     { src: "^/(.*)$", dest: "/index.html" },
   ],
   crons: [{ path: "/api/internal/cron", schedule: "17 3 * * *" }],
