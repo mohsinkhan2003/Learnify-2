@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { GraduationCap, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import learnifyLogo from "@assets/generated_images/LEARNIFY_modern_education_logo_icon_6ea43332.png";
+import learnifyLogo from "@/assets/logo.svg";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -34,17 +34,13 @@ export default function Login() {
       // Redirect to unified dashboard (role-based content will be shown)
       window.location.href = '/dashboard';
     } catch (err: any) {
-      setError(err.message || 'Invalid email or password');
-      
-      const errorMessage = error instanceof Error ? error.message : "Please check your credentials and try again";
-
-        toast({
-          title: "Login failed",
-          description: errorMessage.includes("Database connection failed") 
-            ? "Database connection issue. Please wait a moment and try again."
-            : errorMessage,
-          variant: "destructive",
-        });
+      const errorMessage = err instanceof Error ? err.message : "Please check your credentials and try again";
+      setError(errorMessage);
+      toast({
+        title: "Login failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }

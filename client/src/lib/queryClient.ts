@@ -1,5 +1,12 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// Prefer the server's { error } message so users see why a request failed.
+async function throwIfNotOk(response: Response): Promise<void> {
+  if (response.ok) return;
+  const data = await response.json().catch(() => null);
+  throw new Error(data?.error || `Request failed (${response.status})`);
+}
+
 const defaultQueryFn: QueryFunction = async ({ queryKey }) => {
   const token = localStorage.getItem('auth_token');
   const headers: HeadersInit = {
@@ -15,9 +22,7 @@ const defaultQueryFn: QueryFunction = async ({ queryKey }) => {
     headers,
   });
 
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
+  await throwIfNotOk(response);
 
   return response.json();
 };
@@ -63,9 +68,7 @@ export async function apiRequest(
 
   const response = await fetch(url, options);
 
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
+  await throwIfNotOk(response);
 
   return response;
 }

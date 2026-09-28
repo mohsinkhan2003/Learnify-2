@@ -9,7 +9,7 @@ import { Assignment } from "@shared/schema";
 import { AssignmentForm } from "@/components/assignment-form";
 import { AssignmentAnalytics } from "@/components/assignment-analytics";
 import { format, isValid } from "date-fns";
-import learnifyLogo from "@assets/generated_images/Learnify_educational_platform_logo_bfba335c.png";
+import learnifyLogo from "@/assets/logo.svg";
 import { useAuth } from "@/contexts/auth-context";
 
 export default function TeacherDashboard() {

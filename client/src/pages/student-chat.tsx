@@ -14,8 +14,8 @@ import { useVoiceConversation } from "@/hooks/use-voice-conversation";
 import { useProgressTracking } from "@/hooks/use-progress-tracking";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
-import learnifyLogo from "@assets/generated_images/Learnify_educational_platform_logo_bfba335c.png";
-import aiAvatar from "@assets/WhatsApp Image 2025-11-03 at 22.17.50_25e1ab98_1762190295919.jpg";
+import learnifyLogo from "@/assets/logo.svg";
+import aiAvatar from "@/assets/tutor-avatar.svg";
 
 // Modern futuristic AI avatar - using a gradient-based design
 const aiAvatarGradient = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";

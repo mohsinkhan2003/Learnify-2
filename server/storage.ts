@@ -1,203 +1,153 @@
-import { type Assignment, type InsertAssignment, type ChatMessage, type InsertChatMessage, type PushSubscription, type InsertPushSubscription, type StudentProgress, type InsertStudentProgress, type StudentProgressWithUser, assignments, chatMessages, pushSubscriptions, studentProgress, users } from "@shared/schema";
+import {
+  type Assignment,
+  type InsertAssignment,
+  type ChatMessage,
+  type InsertChatMessage,
+  type PushSubscription,
+  type InsertPushSubscription,
+  type StudentProgress,
+  type InsertStudentProgress,
+  type StudentProgressWithUser,
+  type ProgressStatus,
+  assignments,
+  chatMessages,
+  pushSubscriptions,
+  userPushSubscriptions,
+  studentProgress,
+  users,
+} from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, asc, and, sql } from "drizzle-orm";
+import { eq, desc, asc, and, or, isNull, lte, inArray, sql } from "drizzle-orm";
 
-export interface IStorage {
-  // Assignment methods
-  createAssignment(assignment: InsertAssignment): Promise<Assignment>;
-  getAssignments(): Promise<Assignment[]>;
-  getAssignmentsByTeacher(teacherId: string): Promise<Assignment[]>;
-  getAssignmentsByStudent(studentId: string): Promise<Assignment[]>;
-  getAssignment(id: string): Promise<Assignment | undefined>;
-  getAssignmentsPendingNotification(): Promise<Assignment[]>;
-  markAssignmentNotificationSent(id: string): Promise<void>;
-  assignStudentToAssignment(assignmentId: string, studentId: string): Promise<void>;
+export class DatabaseStorage {
+  // ---- Assignments ----
 
-  // Chat message methods
-  createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
-  getChatMessages(assignmentId: string): Promise<ChatMessage[]>;
-
-  // Push subscription methods
-  createPushSubscription(subscription: InsertPushSubscription): Promise<PushSubscription>;
-  getAllPushSubscriptions(): Promise<PushSubscription[]>;
-  deletePushSubscription(endpoint: string): Promise<void>;
-
-  // Student progress methods
-  createOrUpdateProgress(progress: InsertStudentProgress): Promise<StudentProgress>;
-  getProgress(assignmentId: string, studentId: string): Promise<StudentProgress | undefined>;
-  getStudentProgressByAssignment(assignmentId: string): Promise<StudentProgressWithUser[]>;
-  getStudentProgressByStudent(studentId: string): Promise<StudentProgress[]>;
-  updateProgressStatus(assignmentId: string, studentId: string, status: string): Promise<void>;
-  updateProgressTime(assignmentId: string, studentId: string, timeSpent: number): Promise<void>;
-  incrementMessageCount(assignmentId: string, studentId: string): Promise<void>;
-}
-
-export class DatabaseStorage implements IStorage {
   async createAssignment(insertAssignment: InsertAssignment): Promise<Assignment> {
-    const [assignment] = await db
-      .insert(assignments)
-      .values(insertAssignment)
-      .returning();
+    const [assignment] = await db.insert(assignments).values(insertAssignment).returning();
     return assignment;
   }
 
-  async getAssignments(): Promise<Assignment[]> {
-    return await db
-      .select()
-      .from(assignments)
-      .orderBy(desc(assignments.createdAt))
-      .limit(10); // Limit to 10 assignments for faster loading
+  async getAssignment(id: string): Promise<Assignment | undefined> {
+    const [assignment] = await db.select().from(assignments).where(eq(assignments.id, id));
+    return assignment;
   }
 
-  async getAssignmentsByTeacher(teacherId: string): Promise<Assignment[]> {
-    return await db
+  async getAssignmentsByTeacher(teacherId: string, limit = 100): Promise<Assignment[]> {
+    return db
       .select()
       .from(assignments)
       .where(eq(assignments.teacherId, teacherId))
-      .orderBy(desc(assignments.createdAt));
+      .orderBy(desc(assignments.createdAt))
+      .limit(limit);
   }
 
-  async getAssignmentsByStudent(studentId: string): Promise<Assignment[]> {
-    return await db
+  /**
+   * Assignments visible to a student: those from teachers at the student's school.
+   * Legacy assignments without a school are visible to everyone.
+   */
+  async getAssignmentsForStudent(school: string | null, limit = 50): Promise<Assignment[]> {
+    const schoolFilter = school
+      ? or(eq(assignments.teacherSchool, school), isNull(assignments.teacherSchool))
+      : undefined;
+    return db
       .select()
       .from(assignments)
-      .where(eq(assignments.studentId, studentId))
-      .orderBy(desc(assignments.createdAt));
+      .where(schoolFilter)
+      .orderBy(desc(assignments.createdAt))
+      .limit(limit);
   }
 
-  async getAssignment(id: string): Promise<Assignment | undefined> {
-    const [assignment] = await db
+  async getAssignmentsPendingNotification(): Promise<Assignment[]> {
+    return db
       .select()
       .from(assignments)
-      .where(eq(assignments.id, id));
-    return assignment || undefined;
+      .where(and(eq(assignments.notificationSent, "false"), lte(assignments.notificationTime, new Date())));
   }
 
-  async createChatMessage(insertMessage: InsertChatMessage): Promise<ChatMessage> {
-    const [message] = await db
-      .insert(chatMessages)
-      .values(insertMessage)
-      .returning();
-    return message;
+  async markAssignmentNotificationSent(id: string): Promise<void> {
+    await db.update(assignments).set({ notificationSent: "true" }).where(eq(assignments.id, id));
   }
 
-  async getChatMessages(assignmentId: string): Promise<ChatMessage[]> {
-    // Fetch messages for the assignment, ordered by timestamp
-    const messages = await db
+  // ---- Chat ----
+
+  async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
+    const [created] = await db.insert(chatMessages).values(message).returning();
+    return created;
+  }
+
+  /**
+   * One student's conversation for an assignment. Both the student's messages and
+   * the AI's replies to them are stored with the student's userId.
+   */
+  async getConversation(assignmentId: string, userId: string): Promise<ChatMessage[]> {
+    return db
+      .select()
+      .from(chatMessages)
+      .where(and(eq(chatMessages.assignmentId, assignmentId), eq(chatMessages.userId, userId)))
+      .orderBy(asc(chatMessages.timestamp));
+  }
+
+  /** Every conversation for an assignment (teacher view). */
+  async getChatMessagesForAssignment(assignmentId: string): Promise<ChatMessage[]> {
+    return db
       .select()
       .from(chatMessages)
       .where(eq(chatMessages.assignmentId, assignmentId))
       .orderBy(asc(chatMessages.timestamp));
-
-    // Filter messages to include only those sent by the student or AI messages that directly follow student messages
-    // This is to ensure chat history is visible even for new students who haven't sent messages yet,
-    // and that AI responses are correctly displayed in context.
-    const filteredMessages = messages.filter((message, index, arr) => {
-      // Always include messages from the student
-      if (message.sender === 'student') return true;
-
-      // Include AI messages if they are the first message or directly follow a student's message
-      if (message.sender === 'ai') {
-        if (index === 0) return true; // First message is always shown
-        const previousMessage = arr[index - 1];
-        return previousMessage.sender === 'student';
-      }
-
-      return false; // Exclude other message types
-    });
-
-    return filteredMessages;
   }
 
-  async createPushSubscription(insertSubscription: InsertPushSubscription): Promise<PushSubscription> {
-    const [subscription] = await db
+  // ---- Push subscriptions ----
+
+  async savePushSubscription(userId: string, subscription: InsertPushSubscription): Promise<PushSubscription> {
+    const [saved] = await db
       .insert(pushSubscriptions)
-      .values(insertSubscription)
+      .values(subscription)
       .onConflictDoUpdate({
         target: pushSubscriptions.endpoint,
-        set: {
-          p256dhKey: insertSubscription.p256dhKey,
-          authKey: insertSubscription.authKey,
-        }
+        set: { p256dhKey: subscription.p256dhKey, authKey: subscription.authKey },
       })
       .returning();
-    return subscription;
+
+    // A browser endpoint belongs to whoever most recently subscribed with it.
+    await db.delete(userPushSubscriptions).where(eq(userPushSubscriptions.subscriptionId, saved.id));
+    await db.insert(userPushSubscriptions).values({ userId, subscriptionId: saved.id }).onConflictDoNothing();
+    return saved;
   }
 
-  async getAllPushSubscriptions(): Promise<PushSubscription[]> {
-    return await db
-      .select()
+  /** Subscriptions belonging to students at the given school (all students if school is null). */
+  async getStudentSubscriptions(school: string | null): Promise<PushSubscription[]> {
+    const rows = await db
+      .select({ subscription: pushSubscriptions })
       .from(pushSubscriptions)
-      .orderBy(desc(pushSubscriptions.createdAt));
+      .innerJoin(userPushSubscriptions, eq(userPushSubscriptions.subscriptionId, pushSubscriptions.id))
+      .innerJoin(users, eq(users.id, userPushSubscriptions.userId))
+      .where(and(eq(users.role, "student"), school ? eq(users.school, school) : undefined));
+    return rows.map((r) => r.subscription);
   }
 
   async deletePushSubscription(endpoint: string): Promise<void> {
-    await db
-      .delete(pushSubscriptions)
-      .where(eq(pushSubscriptions.endpoint, endpoint));
+    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
   }
 
-  async getAssignmentsPendingNotification(): Promise<Assignment[]> {
-    const now = new Date();
-    return await db
-      .select()
-      .from(assignments)
-      .where(eq(assignments.notificationSent, 'false'))
-      .then(results => results.filter(a => new Date(a.notificationTime) <= now));
-  }
-
-  async markAssignmentNotificationSent(id: string): Promise<void> {
-    await db
-      .update(assignments)
-      .set({ notificationSent: 'true' })
-      .where(eq(assignments.id, id));
-  }
-
-  async assignStudentToAssignment(assignmentId: string, studentId: string): Promise<void> {
-    await db
-      .update(assignments)
-      .set({ studentId })
-      .where(eq(assignments.id, assignmentId));
-  }
+  // ---- Progress ----
 
   async createOrUpdateProgress(data: InsertStudentProgress): Promise<StudentProgress> {
-    console.log('[Progress DB] Creating/updating progress:', {
-      assignmentId: data.assignmentId,
-      studentId: data.studentId,
-      status: data.status,
-      timeSpent: data.totalTimeSpent,
-      messages: data.messageCount
-    });
-
-    // Ensure startedAt is set if not provided
-    const values = {
-      ...data,
-      startedAt: data.startedAt || new Date(),
-      lastActiveAt: data.lastActiveAt || new Date(),
-    };
-
+    const now = new Date();
     const [progress] = await db
       .insert(studentProgress)
-      .values(values)
+      .values({ ...data, startedAt: data.startedAt ?? now, lastActiveAt: now })
       .onConflictDoUpdate({
         target: [studentProgress.assignmentId, studentProgress.studentId],
         set: {
-          // Update status if provided, otherwise keep existing
-          status: data.status !== undefined ? data.status : sql`${studentProgress.status}`,
-          // Update totalTimeSpent if provided, otherwise keep existing
-          totalTimeSpent: data.totalTimeSpent !== undefined ? data.totalTimeSpent : sql`${studentProgress.totalTimeSpent}`,
-          // NEVER overwrite messageCount here - it's managed by incrementMessageCount
-          messageCount: sql`${studentProgress.messageCount}`,
-          // Update completedAt if provided, otherwise keep existing
+          // Only overwrite fields that were provided. messageCount is managed by incrementMessageCount.
+          status: data.status ?? sql`${studentProgress.status}`,
+          totalTimeSpent: data.totalTimeSpent ?? sql`${studentProgress.totalTimeSpent}`,
           completedAt: data.completedAt !== undefined ? data.completedAt : sql`${studentProgress.completedAt}`,
-          // Preserve startedAt if it exists, otherwise set to NOW
           startedAt: sql`COALESCE(${studentProgress.startedAt}, NOW())`,
-          lastActiveAt: new Date(),
+          lastActiveAt: now,
         },
       })
       .returning();
-
-    console.log('[Progress DB] ✓ Progress saved:', progress.id);
     return progress;
   }
 
@@ -205,26 +155,19 @@ export class DatabaseStorage implements IStorage {
     const [progress] = await db
       .select()
       .from(studentProgress)
-      .where(
-        and(
-          eq(studentProgress.assignmentId, assignmentId),
-          eq(studentProgress.studentId, studentId)
-        )
-      );
-    return progress || undefined;
+      .where(and(eq(studentProgress.assignmentId, assignmentId), eq(studentProgress.studentId, studentId)));
+    return progress;
   }
 
   async getStudentProgressByAssignment(assignmentId: string): Promise<StudentProgressWithUser[]> {
-    console.log('[Analytics DB] Fetching progress for assignment:', assignmentId);
-
-    const results = await db
+    return db
       .select({
         id: studentProgress.id,
         assignmentId: studentProgress.assignmentId,
         studentId: studentProgress.studentId,
         status: studentProgress.status,
-        totalTimeSpent: sql<number>`COALESCE(${studentProgress.totalTimeSpent}, 0)`.as('totalTimeSpent'),
-        messageCount: sql<number>`COALESCE(${studentProgress.messageCount}, 0)`.as('messageCount'),
+        totalTimeSpent: studentProgress.totalTimeSpent,
+        messageCount: studentProgress.messageCount,
         startedAt: studentProgress.startedAt,
         completedAt: studentProgress.completedAt,
         lastActiveAt: studentProgress.lastActiveAt,
@@ -236,110 +179,69 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(users, eq(studentProgress.studentId, users.id))
       .where(eq(studentProgress.assignmentId, assignmentId))
       .orderBy(desc(studentProgress.lastActiveAt));
-
-    console.log('[Analytics DB] Found', results.length, 'student progress records');
-    results.forEach(r => {
-      console.log('  -', r.studentName || 'Unknown', ':', r.status, '- Messages:', r.messageCount, '- Time:', r.totalTimeSpent + 's');
-    });
-
-    return results;
   }
 
-  async getStudentProgressByStudent(studentId: string): Promise<StudentProgress[]> {
-    return await db
+  /** A student's progress, optionally restricted to a set of assignments. */
+  async getStudentProgressByStudent(studentId: string, assignmentIds?: string[]): Promise<StudentProgress[]> {
+    if (assignmentIds && assignmentIds.length === 0) return [];
+    return db
       .select()
       .from(studentProgress)
-      .where(eq(studentProgress.studentId, studentId))
+      .where(
+        and(
+          eq(studentProgress.studentId, studentId),
+          assignmentIds ? inArray(studentProgress.assignmentId, assignmentIds) : undefined,
+        ),
+      )
       .orderBy(desc(studentProgress.lastActiveAt));
   }
 
-  async updateProgressStatus(assignmentId: string, studentId: string, status: string): Promise<void> {
-    // Always check if startedAt needs to be set for existing records
-    const existing = await this.getProgress(assignmentId, studentId);
+  private progressWhere(assignmentId: string, studentId: string) {
+    return and(eq(studentProgress.assignmentId, assignmentId), eq(studentProgress.studentId, studentId));
+  }
 
-    const updates: any = {
-      status,
-      lastActiveAt: new Date(),
-    };
-
-    // Set startedAt if it's null (for both new and existing records)
-    if (!existing?.startedAt) {
-      updates.startedAt = new Date();
-      console.log('[Progress] Setting startedAt for existing record');
-    }
-
-    if (status === 'completed') {
-      updates.completedAt = new Date();
-    }
-
+  async updateProgressStatus(assignmentId: string, studentId: string, status: ProgressStatus): Promise<void> {
+    const now = new Date();
     await db
       .update(studentProgress)
-      .set(updates)
-      .where(
-        and(
-          eq(studentProgress.assignmentId, assignmentId),
-          eq(studentProgress.studentId, studentId)
-        )
-      );
+      .set({
+        status,
+        lastActiveAt: now,
+        startedAt: sql`COALESCE(${studentProgress.startedAt}, NOW())`,
+        ...(status === "completed" ? { completedAt: now } : {}),
+      })
+      .where(this.progressWhere(assignmentId, studentId));
+  }
+
+  /** Moves an unfinished assignment to summary_provided (never downgrades a completed one). */
+  async markSummaryProvided(assignmentId: string, studentId: string): Promise<void> {
+    await db
+      .update(studentProgress)
+      .set({ status: "summary_provided", lastActiveAt: new Date() })
+      .where(and(this.progressWhere(assignmentId, studentId), sql`${studentProgress.status} <> 'completed'`));
   }
 
   async updateProgressTime(assignmentId: string, studentId: string, timeSpent: number): Promise<void> {
-    // Get existing progress to check if startedAt needs to be set
-    const progress = await this.getProgress(assignmentId, studentId);
-
-    const updates: any = {
-      totalTimeSpent: timeSpent,
-      lastActiveAt: new Date(),
-    };
-
-    // Set startedAt if it's null (for existing records created before the fix)
-    if (!progress?.startedAt) {
-      updates.startedAt = new Date();
-      console.log('[Progress DB] Setting startedAt for existing record during time update');
-    }
-
     await db
       .update(studentProgress)
-      .set(updates)
-      .where(
-        and(
-          eq(studentProgress.assignmentId, assignmentId),
-          eq(studentProgress.studentId, studentId)
-        )
-      );
+      .set({
+        totalTimeSpent: timeSpent,
+        lastActiveAt: new Date(),
+        startedAt: sql`COALESCE(${studentProgress.startedAt}, NOW())`,
+      })
+      .where(this.progressWhere(assignmentId, studentId));
   }
 
   async incrementMessageCount(assignmentId: string, studentId: string): Promise<void> {
-    console.log('[Progress DB] Incrementing message count for student:', studentId, 'assignment:', assignmentId);
-
-    const progress = await this.getProgress(assignmentId, studentId);
-    const currentCount = progress?.messageCount ?? 0;
-    const newCount = currentCount + 1;
-
-    console.log('[Progress DB] Current count:', currentCount, '-> New count:', newCount);
-
-    const updates: any = {
-      messageCount: newCount,
-      lastActiveAt: new Date(),
-    };
-
-    // Set startedAt if it's null (for existing records created before the fix)
-    if (!progress?.startedAt) {
-      updates.startedAt = new Date();
-      console.log('[Progress DB] Setting startedAt for existing record');
-    }
-
+    // Atomic increment so concurrent requests cannot lose updates.
     await db
       .update(studentProgress)
-      .set(updates)
-      .where(
-        and(
-          eq(studentProgress.assignmentId, assignmentId),
-          eq(studentProgress.studentId, studentId)
-        )
-      );
-
-    console.log('[Progress DB] ✓ Message count updated to', newCount);
+      .set({
+        messageCount: sql`${studentProgress.messageCount} + 1`,
+        lastActiveAt: new Date(),
+        startedAt: sql`COALESCE(${studentProgress.startedAt}, NOW())`,
+      })
+      .where(this.progressWhere(assignmentId, studentId));
   }
 }
 

@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GraduationCap, Users, Bot, Loader2 } from "lucide-react";
-import learnifyLogo from "@assets/generated_images/LEARNIFY_modern_education_logo_icon_6ea43332.png";
+import learnifyLogo from "@/assets/logo.svg";
 import { InstallPWA } from "@/components/install-pwa";
 
 export default function Home() {

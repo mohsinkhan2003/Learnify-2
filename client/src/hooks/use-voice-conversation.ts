@@ -61,7 +61,7 @@ export function useVoiceConversation(
     setError(null);
 
     try {
-      if (!('webkitSpeechRecognition' in window)) {
+      if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
         throw new Error('Your browser does not support speech recognition. Please use Chrome, Edge, or Safari.');
       }
 

@@ -1,8 +1,8 @@
 // Service Worker for PWA with Background Push Notifications
 // Handles push events, offline support, and app installation
 
-const CACHE_NAME = 'learnify-v10';
-const RUNTIME_CACHE = 'learnify-runtime-v10';
+const CACHE_NAME = 'learnify-v11';
+const RUNTIME_CACHE = 'learnify-runtime-v11';
 
 // Static assets to cache on install
 const PRECACHE_ASSETS = [
@@ -56,15 +56,28 @@ self.addEventListener('fetch', event => {
     return;
   }
   
-  // API requests - network ONLY (no caching to prevent stale data)
-  // Pass through ALL API requests (GET, POST, PUT, DELETE, etc.)
+  // API requests are never cached; let the browser handle them directly.
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(fetch(request));
     return;
   }
-  
+
   // Skip non-GET requests for static assets
   if (request.method !== 'GET') {
+    return;
+  }
+
+  // Page navigations - network first so new deployments are picked up,
+  // falling back to the cached app shell when offline.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then(response => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put('/', copy));
+          return response;
+        })
+        .catch(() => caches.match('/'))
+    );
     return;
   }
   

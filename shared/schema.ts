@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, uuid, integer, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, uuid, integer, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -88,7 +88,9 @@ export const chatMessages = pgTable("chat_messages", {
   role: text("role").notNull(), // 'student' or 'ai'
   content: text("content").notNull(),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
-});
+}, (table) => ({
+  assignmentUserIdx: index("chat_messages_assignment_user_idx").on(table.assignmentId, table.userId),
+}));
 
 export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
   id: true,
@@ -167,7 +169,9 @@ export const userPushSubscriptions = pgTable("user_push_subscriptions", {
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   subscriptionId: varchar("subscription_id").notNull().references(() => pushSubscriptions.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  uniqueUserSubscription: uniqueIndex("unique_user_subscription_idx").on(table.userId, table.subscriptionId),
+}));
 
 export const insertUserPushSubscriptionSchema = createInsertSchema(userPushSubscriptions).omit({
   id: true,

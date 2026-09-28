@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Assignment } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 interface NotificationSound {
   play: () => void;
@@ -121,15 +122,9 @@ export function useHomeworkNotifications(assignments: Assignment[] | undefined) 
         console.log('[Push] Endpoint:', existingSubscription.endpoint.substring(0, 50) + '...');
         
         // Ensure server has this subscription
-        const saveResponse = await fetch('/api/push/subscribe', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(existingSubscription),
-        });
+        const saveResponse = await apiRequest('POST', '/api/push/subscribe', existingSubscription.toJSON()).catch(() => null);
 
-        if (saveResponse.ok) {
+        if (saveResponse?.ok) {
           console.log('[Push] ✓ Existing subscription confirmed with server');
         }
         return;
@@ -157,17 +152,8 @@ export function useHomeworkNotifications(assignments: Assignment[] | undefined) 
 
       // Send subscription to server
       console.log('[Push] Sending subscription to server...');
-      const saveResponse = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(subscription),
-      });
-
-      if (!saveResponse.ok) {
-        throw new Error(`Failed to save subscription: ${saveResponse.statusText}`);
-      }
+      // apiRequest attaches the auth token and throws on non-2xx responses.
+      await apiRequest('POST', '/api/push/subscribe', subscription.toJSON());
 
       console.log('[Push] ✓ Successfully subscribed to push notifications!');
       console.log('[Push] Notifications will now work everywhere - even when app is minimized or on different pages');

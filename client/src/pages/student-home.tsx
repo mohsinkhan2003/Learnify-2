@@ -6,10 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Bot, Clock, BookOpen, Bell, BellRing, ArrowLeft, LogOut, User, MessageSquare } from "lucide-react";
 import { Assignment, StudentProgress, ChatMessage } from "@shared/schema";
 import { format, isFuture } from "date-fns";
-import robotAvatarImage from "@assets/WhatsApp Image 2025-11-03 at 22.17.50_25e1ab98_1762190295919.jpg";
+import robotAvatarImage from "@/assets/tutor-avatar.svg";
 import { useHomeworkNotifications } from "@/hooks/use-homework-notifications";
 import { useState, useEffect } from "react";
-import learnifyLogo from "@assets/generated_images/Learnify_educational_platform_logo_bfba335c.png";
+import learnifyLogo from "@/assets/logo.svg";
 import { useAuth } from "@/contexts/auth-context";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -198,7 +198,7 @@ export default function StudentHome() {
           <div className="inline-flex mb-3 sm:mb-4">
             {/* AI Tutor Robot Avatar */}
             <img
-              src={`${robotAvatarImage}?v=${Date.now()}`}
+              src={robotAvatarImage}
               alt="AI Tutor"
               className="w-16 h-16 sm:w-20 sm:h-20 object-contain"
             />

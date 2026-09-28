@@ -1,98 +1,133 @@
-import express, { type Request, Response, NextFunction } from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
+import { createServer } from "http";
+import helmet from "helmet";
+import cors from "cors";
+import { ZodError } from "zod";
+import { config } from "./config";
+import { log } from "./logger";
+import { checkDatabase, pool } from "./db";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import { HttpError } from "./middleware";
+import { deleteExpiredSessions } from "./auth";
+import { initPush, processPendingNotifications } from "./push";
+import { serveStatic } from "./static";
 
 const app = express();
 
-// CORS configuration
+app.set("trust proxy", config.trustProxy);
+app.disable("x-powered-by");
+
+app.use(
+  helmet({
+    // Vite's dev server injects inline scripts, so CSP is only enforced in production.
+    contentSecurityPolicy: config.isProduction
+      ? {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "blob:", "https:"],
+            connectSrc: ["'self'"],
+            mediaSrc: ["'self'", "blob:"],
+            workerSrc: ["'self'"],
+            manifestSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            frameAncestors: ["'none'"],
+          },
+        }
+      : false,
+  }),
+);
+
+// Same-origin by default; cross-origin callers must be listed in CORS_ORIGINS.
+if (config.corsOrigins.length > 0) {
+  app.use(cors({ origin: config.corsOrigins }));
+}
+
+app.use(express.json({ limit: "100kb" }));
+app.use(express.urlencoded({ extended: false, limit: "100kb" }));
+
+// Request logging (method, path, status, duration). Bodies are never logged:
+// they contain passwords, tokens and student conversations.
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
+  if (!req.path.startsWith("/api")) return next();
+  const start = Date.now();
+  res.on("finish", () => {
+    log.info(`${req.method} ${req.path} ${res.statusCode} ${Date.now() - start}ms`);
+  });
   next();
 });
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+registerRoutes(app);
 
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  if (res.headersSent) return next(err);
 
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
+  if (err instanceof HttpError) {
+    return res.status(err.status).json({ error: err.message, ...(err.details ? { details: err.details } : {}) });
+  }
+  if (err instanceof ZodError) {
+    return res.status(400).json({ error: "Invalid request", details: err.issues });
+  }
+  // body-parser errors (malformed JSON, payload too large) carry a status.
+  const status = (err as any)?.status ?? (err as any)?.statusCode;
+  if (typeof status === "number" && status >= 400 && status < 500) {
+    return res.status(status).json({ error: (err as any).expose ? (err as Error).message : "Bad request" });
+  }
+
+  log.error("Unhandled error:", err);
+  res.status(500).json({ error: "Internal server error" });
+});
+
+async function main() {
+  const server = createServer(app);
+
+  if (config.isProduction) {
+    serveStatic(app);
+  } else {
+    const { setupVite } = await import("./vite");
+    await setupVite(app, server);
+  }
+
+  try {
+    await checkDatabase();
+    log.info("[Database] Connected");
+  } catch (error) {
+    // Keep serving so /api/health reports the problem; the DB may come up later.
+    log.error("[Database] Initial connection check failed:", error);
+  }
+
+  initPush();
+
+  const runJobs = () => {
+    processPendingNotifications().catch((e) => log.error("[Jobs] Notification check failed:", e));
   };
+  runJobs();
+  const notificationTimer = setInterval(runJobs, 60_000);
 
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
+  const cleanupSessions = () => deleteExpiredSessions().catch((e) => log.error("[Jobs] Session cleanup failed:", e));
+  cleanupSessions();
+  const sessionTimer = setInterval(cleanupSessions, 60 * 60_000);
 
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
-    }
+  server.listen(config.port, "0.0.0.0", () => {
+    log.info(`Server listening on port ${config.port} (${config.env})`);
   });
 
-  next();
+  const shutdown = (signal: string) => {
+    log.info(`${signal} received, shutting down`);
+    clearInterval(notificationTimer);
+    clearInterval(sessionTimer);
+    server.close(() => {
+      pool.end().finally(() => process.exit(0));
+    });
+    setTimeout(() => process.exit(1), 10_000).unref();
+  };
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+}
+
+main().catch((error) => {
+  log.error("Fatal error during startup:", error);
+  process.exit(1);
 });
-
-(async () => {
-  try {
-    log("Starting server initialization...");
-
-    const server = await registerRoutes(app);
-    log("Routes registered successfully");
-
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-
-      res.status(status).json({ message });
-      throw err;
-    });
-
-    // importantly only setup vite in development and after
-    // setting up all the other routes so the catch-all route
-    // doesn't interfere with the other routes
-    if (app.get("env") === "development") {
-      log("Setting up Vite in development mode...");
-      await setupVite(app, server);
-      log("Vite setup complete");
-    } else {
-      log("Serving static files in production mode...");
-      serveStatic(app);
-      log("Static file serving configured");
-    }
-
-    // ALWAYS serve the app on the port specified in the environment variable PORT
-    // Other ports are firewalled. Default to 5000 if not specified.
-    // this serves both the API and the client.
-    // It is the only port that is not firewalled.
-    const port = parseInt(process.env.PORT || '5000', 10);
-    log(`Attempting to listen on port ${port}...`);
-
-    server.listen({
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    }, () => {
-      log(`✓ Server successfully started on port ${port}`);
-    });
-  } catch (error) {
-    console.error("❌ FATAL ERROR during server initialization:");
-    console.error(error);
-    process.exit(1);
-  }
-})();

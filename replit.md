@@ -24,7 +24,7 @@ Learnify is an intelligent tutoring system designed to provide AI-powered, perso
 ### Technical Implementations
 - **Frontend**: React, TypeScript, Wouter (routing), TanStack Query.
 - **Backend**: Express, TypeScript.
-- **Database**: PostgreSQL (Neon) with Drizzle ORM.
+- **Database**: PostgreSQL (any provider, via node-postgres) with Drizzle ORM.
 - **Authentication**: Session-based auth with role-based access control (teacher/student), protected routes, AuthContext.
 - **Progress Tracking**: Automatic session tracking including time spent, message count, completion status, and analytics dashboard.
 - **Teacher Analytics**: Aggregate metrics, struggling student identification, detailed student roster.
@@ -42,7 +42,7 @@ Learnify is an intelligent tutoring system designed to provide AI-powered, perso
 
 ### System Design Choices
 - **Persistent Data**: PostgreSQL database for data persistence.
-- **Adaptive Learning**: GPT-4.1 integration for personalized learning.
+- **Adaptive Learning**: OpenAI chat completions (default `gpt-4o-mini`, configurable via `OPENAI_MODEL`).
 - **Accessible Learning**: Emphasis on voice interaction.
 - **API Route Organization**: Express routes ordered by specificity.
 - **Data Integrity**: Progress data preservation during updates, preventing accidental overwrites.
@@ -53,10 +53,9 @@ Learnify is an intelligent tutoring system designed to provide AI-powered, perso
 - **Voice Conversation Architecture**: Consolidated voice flow where useVoiceConversation hook owns all speech playback (greeting, AI responses). student-chat.tsx delegates to hook functions, preventing duplicate speaking and ensuring single source of truth.
 
 ## External Dependencies
-- **PostgreSQL (Neon)**: Database for persistent storage.
-- **OpenAI GPT-4.1**: AI model for intelligent tutoring via Replit AI Integrations.
-- **Web Speech API**: Browser-built-in API for speech recognition and speech synthesis.
-- **Google Gemini 2.5 Flash**: Used for speech-to-text transcription.
+- **PostgreSQL**: Database for persistent storage.
+- **OpenAI** (`gpt-4o-mini` by default): AI tutor, via `OPENAI_API_KEY` or Replit AI Integrations.
+- **Web Speech API**: Browser-built-in API for speech recognition (speech-to-text) and speech synthesis.
 
 ## Recent Changes (November 11, 2025)
 

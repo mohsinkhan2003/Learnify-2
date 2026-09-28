@@ -1,277 +1,189 @@
-import { Router, type Request, type Response } from "express";
-import { hashPassword, verifyPassword, createUser, findUserByEmail, findUserByGoogleId, createSession, validateSession, deleteSession } from "./auth";
-import { insertUserSchema } from "@shared/schema";
+import { Router } from "express";
+import rateLimit from "express-rate-limit";
+import { z } from "zod";
 import { OAuth2Client } from "google-auth-library";
+import {
+  hashPassword,
+  verifyPassword,
+  createUser,
+  findUserByEmail,
+  findUserByGoogleId,
+  linkGoogleAccount,
+  createSession,
+  deleteSession,
+  toPublicUser,
+} from "./auth";
+import { asyncHandler, currentUser, getBearerToken, HttpError, requireAuth } from "./middleware";
+import { config } from "./config";
 
 const router = Router();
 
-// Google OAuth client
-const googleClient = new OAuth2Client(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI || "http://localhost:5000/api/auth/google/callback"
-);
-
-// Signup with email/password
-router.post("/signup", async (req: Request, res: Response) => {
-  console.log('[Auth API] 🔵 POST /api/auth/signup - REQUEST RECEIVED');
-  console.log('[Auth API] Request body:', JSON.stringify(req.body, null, 2));
-
-  try {
-    const { email, password, name, role, school, subject } = req.body;
-
-    if (!email || !password || !name || !role || !school) {
-      console.log('[Auth API] ❌ Missing required fields:', { email: !!email, password: !!password, name: !!name, role: !!role, school: !!school });
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    if (!['teacher', 'student'].includes(role)) {
-      return res.status(400).json({ error: "Invalid role" });
-    }
-
-    // Teachers must provide subject
-    if (role === 'teacher' && !subject) {
-      return res.status(400).json({ error: "Subject is required for teachers" });
-    }
-
-    // Check if user exists
-    const existingUser = await findUserByEmail(email);
-    if (existingUser) {
-      return res.status(400).json({ error: "Email already registered" });
-    }
-
-    // Hash password and create user
-    const hashedPassword = await hashPassword(password);
-    const user = await createUser({
-      email,
-      password: hashedPassword,
-      name,
-      role,
-      school,
-      subject: role === 'teacher' ? subject : undefined,
-    });
-
-    // Create session
-    const token = await createSession(user.id);
-
-    console.log('[Auth API] ✅ Signup successful for:', email);
-    res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        avatar: user.avatar,
-      },
-      token,
-    });
-  } catch (error: any) {
-    console.error('[Auth API] ❌ Signup error:', error);
-
-    // Check if it's a database connection error
-    if (error.message?.includes('connection') || error.message?.includes('fetch failed')) {
-      return res.status(503).json({ 
-        error: "Database connection error. Please try again.",
-        details: error.message 
-      });
-    }
-
-    // Check for unique constraint violations
-    if (error.message?.includes('unique') || error.code === '23505') {
-      return res.status(400).json({ error: "Email already registered" });
-    }
-
-    res.status(500).json({ error: error.message || "Failed to create account" });
-  }
+// Throttle credential endpoints to slow down brute-force and account-enumeration attempts.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many attempts. Please try again later." },
 });
 
-// Login with email/password
-router.post("/login", async (req: Request, res: Response) => {
-  console.log('[Auth API] 🔵 POST /api/auth/login - REQUEST RECEIVED');
-  console.log('[Auth API] Request body:', JSON.stringify(req.body, null, 2));
-  console.log('[Auth API] Request headers:', JSON.stringify(req.headers, null, 2));
+const roleSchema = z.enum(["teacher", "student"]);
 
-  try {
-    const { email, password } = req.body;
+const signupSchema = z
+  .object({
+    email: z.string().trim().email("Invalid email address").max(255),
+    password: z.string().min(8, "Password must be at least 8 characters").max(128),
+    name: z.string().trim().min(1, "Name is required").max(100),
+    role: roleSchema,
+    school: z.string().trim().min(1, "School is required").max(255),
+    subject: z.string().trim().max(100).optional(),
+  })
+  .refine((d) => d.role !== "teacher" || !!d.subject, {
+    message: "Subject is required for teachers",
+    path: ["subject"],
+  });
 
-    if (!email || !password) {
-      console.log('[Auth API] ❌ Missing email or password');
-      return res.status(400).json({ error: "Email and password required" });
+const loginSchema = z.object({
+  email: z.string().trim().min(1).max(255),
+  password: z.string().min(1).max(128),
+});
+
+function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
+  const result = schema.safeParse(body);
+  if (!result.success) {
+    throw new HttpError(400, result.error.issues[0]?.message ?? "Invalid request", result.error.issues);
+  }
+  return result.data;
+}
+
+router.post(
+  "/signup",
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const data = parseBody(signupSchema, req.body);
+
+    if (await findUserByEmail(data.email)) {
+      throw new HttpError(409, "Email already registered");
     }
 
-    // Find user
     let user;
     try {
-      user = await findUserByEmail(email);
-    } catch (dbError: any) {
-      console.error('[Auth API] Database error during findUserByEmail:', dbError);
-      // Check if it's a database connection error
-      if (dbError.message?.includes('connection') || dbError.message?.includes('fetch failed') || dbError.message?.includes('ECONNREFUSED') || dbError.message?.includes('database')) {
-        return res.status(503).json({ 
-          error: "Database connection error. Please try again.",
-          details: "Database connection failed after retries. Please check the database configuration in Secrets."
+      user = await createUser({
+        email: data.email,
+        password: await hashPassword(data.password),
+        name: data.name,
+        role: data.role,
+        school: data.school,
+        subject: data.role === "teacher" ? data.subject : undefined,
+      });
+    } catch (error: any) {
+      // Unique violation from a concurrent signup with the same email
+      if (error?.code === "23505") throw new HttpError(409, "Email already registered");
+      throw error;
+    }
+
+    const token = await createSession(user.id);
+    res.status(201).json({ user: toPublicUser(user), token });
+  }),
+);
+
+router.post(
+  "/login",
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const { email, password } = parseBody(loginSchema, req.body);
+
+    const user = await findUserByEmail(email);
+    if (!user?.password || !(await verifyPassword(password, user.password))) {
+      throw new HttpError(401, "Invalid email or password");
+    }
+
+    const token = await createSession(user.id);
+    res.json({ user: toPublicUser(user), token });
+  }),
+);
+
+// Google OAuth is optional; these routes are only active when credentials are configured.
+const googleClient =
+  config.google.clientId && config.google.clientSecret
+    ? new OAuth2Client(config.google.clientId, config.google.clientSecret, config.google.redirectUri)
+    : null;
+
+function requireGoogle(): OAuth2Client {
+  if (!googleClient) throw new HttpError(501, "Google sign-in is not configured");
+  return googleClient;
+}
+
+router.get("/google", (_req, res, next) => {
+  try {
+    const url = requireGoogle().generateAuthUrl({ access_type: "online", scope: ["profile", "email"] });
+    res.json({ url });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const googleCallbackSchema = z.object({
+  code: z.string().min(1),
+  role: roleSchema.optional(),
+  school: z.string().trim().min(1).max(255).optional(),
+  subject: z.string().trim().max(100).optional(),
+});
+
+router.post(
+  "/google/callback",
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const client = requireGoogle();
+    const { code, role, school, subject } = parseBody(googleCallbackSchema, req.body);
+
+    const { tokens } = await client.getToken(code);
+    if (!tokens.id_token) throw new HttpError(400, "Invalid Google response");
+
+    const ticket = await client.verifyIdToken({ idToken: tokens.id_token, audience: config.google.clientId });
+    const payload = ticket.getPayload();
+    if (!payload?.sub || !payload.email || !payload.email_verified) {
+      throw new HttpError(400, "Google account email is not verified");
+    }
+
+    let user = await findUserByGoogleId(payload.sub);
+
+    if (!user) {
+      const existing = await findUserByEmail(payload.email);
+      if (existing) {
+        // Same verified email: link the Google identity to the existing account.
+        user = await linkGoogleAccount(existing.id, payload.sub, payload.picture);
+      } else {
+        if (!role || !school) throw new HttpError(400, "Role and school are required for new users");
+        if (role === "teacher" && !subject) throw new HttpError(400, "Subject is required for teachers");
+        user = await createUser({
+          email: payload.email,
+          name: payload.name || payload.email,
+          googleId: payload.sub,
+          role,
+          school,
+          subject: role === "teacher" ? subject : undefined,
+          avatar: payload.picture,
         });
       }
-      return res.status(500).json({ error: "Error connecting to database: " + dbError.message });
     }
 
-    if (!user || !user.password) {
-      console.log('[Auth API] User not found or no password set');
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    // Verify password
-    const isValid = await verifyPassword(password, user.password);
-    if (!isValid) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    // Create session
     const token = await createSession(user.id);
+    res.json({ user: toPublicUser(user), token });
+  }),
+);
 
-    console.log('[Auth API] ✅ Login successful for:', email);
-    res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        avatar: user.avatar,
-      },
-      token,
-    });
-  } catch (error: any) {
-    console.error("[Auth] Login error:", error);
-
-    // Check if it's a database connection error
-    if (error.message?.includes('connection') || error.message?.includes('database') || error.message?.includes('fetch failed') || error.message?.includes('ECONNREFUSED')) {
-      return res.status(503).json({ 
-        error: "Error connecting to database: Database connection failed after retries: " + error.message,
-        details: "Please check the database configuration in Secrets"
-      });
-    }
-
-    res.status(500).json({ 
-      error: "An error occurred during login",
-      details: error.message 
-    });
-  }
+router.get("/me", requireAuth, (req, res) => {
+  res.json(toPublicUser(currentUser(req)));
 });
 
-// Google OAuth login URL
-router.get("/google", (_req: Request, res: Response) => {
-  const url = googleClient.generateAuthUrl({
-    access_type: 'offline',
-    scope: ['profile', 'email'],
-  });
-  res.json({ url });
-});
-
-// Google OAuth callback
-router.post("/google/callback", async (req: Request, res: Response) => {
-  try {
-    const { code, role } = req.body;
-
-    if (!code) {
-      return res.status(400).json({ error: "Authorization code required" });
-    }
-
-    // Exchange code for tokens
-    const { tokens } = await googleClient.getToken(code);
-    googleClient.setCredentials(tokens);
-
-    // Get user info
-    const ticket = await googleClient.verifyIdToken({
-      idToken: tokens.id_token!,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-
-    const payload = ticket.getPayload();
-    if (!payload) {
-      return res.status(400).json({ error: "Invalid Google token" });
-    }
-
-    const { sub: googleId, email, name, picture } = payload;
-
-    // Find or create user
-    let user = await findUserByGoogleId(googleId!);
-
-    if (!user) {
-      // New user - require role selection
-      if (!role || !['teacher', 'student'].includes(role)) {
-        return res.status(400).json({ error: "Role required for new users" });
-      }
-
-      user = await createUser({
-        email: email!,
-        name: name!,
-        googleId: googleId!,
-        role,
-        avatar: picture,
-      });
-    }
-
-    // Create session
-    const token = await createSession(user.id);
-
-    res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        avatar: user.avatar,
-      },
-      token,
-    });
-  } catch (error) {
-    console.error("Google auth error:", error);
-    res.status(500).json({ error: "Failed to authenticate with Google" });
-  }
-});
-
-// Get current user
-router.get("/me", async (req: Request, res: Response) => {
-  try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-
-    if (!token) {
-      return res.status(401).json({ error: "No token provided" });
-    }
-
-    const user = await validateSession(token);
-
-    if (!user) {
-      return res.status(401).json({ error: "Invalid or expired session" });
-    }
-
-    res.json({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      avatar: user.avatar,
-    });
-  } catch (error) {
-    console.error("Auth check error:", error);
-    res.status(500).json({ error: "Failed to verify session" });
-  }
-});
-
-// Logout
-router.post("/logout", async (req: Request, res: Response) => {
-  try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-
-    if (token) {
-      await deleteSession(token);
-    }
-
+router.post(
+  "/logout",
+  asyncHandler(async (req, res) => {
+    const token = getBearerToken(req);
+    if (token) await deleteSession(token);
     res.json({ message: "Logged out successfully" });
-  } catch (error) {
-    console.error("Logout error:", error);
-    res.status(500).json({ error: "Failed to logout" });
-  }
-});
+  }),
+);
 
 export default router;
