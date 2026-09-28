@@ -15,7 +15,7 @@ beforeAll(async () => {
 
 describe("Google OAuth hardening", () => {
   it("advertises the provider", async () => {
-    expect((await request(app).get("/api/auth/providers")).body).toEqual({ google: true });
+    expect((await request(app).get("/api/auth/providers")).body).toEqual({ google: true, email: false });
   });
 
   it("starts the flow with state + PKCE and a fixed redirect URI", async () => {

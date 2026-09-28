@@ -3,6 +3,7 @@ import { and, eq, inArray, isNull, lte, sql } from "drizzle-orm";
 import {
   assignments,
   assignmentStudents,
+  classMembers,
   pushSubscriptions,
   userPushSubscriptions,
   users,
@@ -81,19 +82,26 @@ async function subscriptionsFor(assignment: Assignment): Promise<PushSubscriptio
     .innerJoin(users, eq(users.id, userPushSubscriptions.userId));
 
   const rows =
-    assignment.audience === "selected"
+    assignment.audience === "class" && assignment.classId
       ? await base.where(
           inArray(
             users.id,
-            db
-              .select({ id: assignmentStudents.studentId })
-              .from(assignmentStudents)
-              .where(eq(assignmentStudents.assignmentId, assignment.id)),
+            db.select({ id: classMembers.studentId }).from(classMembers).where(eq(classMembers.classId, assignment.classId)),
           ),
         )
-      : assignment.teacherSchool
-        ? await base.where(and(eq(users.role, "student"), eq(users.school, assignment.teacherSchool)))
-        : [];
+      : assignment.audience === "selected"
+        ? await base.where(
+            inArray(
+              users.id,
+              db
+                .select({ id: assignmentStudents.studentId })
+                .from(assignmentStudents)
+                .where(eq(assignmentStudents.assignmentId, assignment.id)),
+            ),
+          )
+        : assignment.teacherSchool
+          ? await base.where(and(eq(users.role, "student"), eq(users.school, assignment.teacherSchool)))
+          : [];
   return rows.map((r) => r.s);
 }
 

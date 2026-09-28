@@ -53,6 +53,10 @@ const envSchema = z
     VAPID_PRIVATE_KEY: z.string().optional(),
     VAPID_SUBJECT: z.string().default("mailto:support@learnify.app"),
 
+    // Email (optional; password-reset emails). Resend has a free tier: https://resend.com
+    RESEND_API_KEY: z.string().optional(),
+    EMAIL_FROM: z.string().optional(),
+
     // Google OAuth
     GOOGLE_CLIENT_ID: z.string().optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),
@@ -135,6 +139,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env) {
       privateKey: env.VAPID_PRIVATE_KEY?.trim(),
       subject: env.VAPID_SUBJECT,
     },
+    email: { resendApiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM },
     google:
       env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
         ? {

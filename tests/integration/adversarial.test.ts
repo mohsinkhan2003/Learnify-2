@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { sessions } from "../../shared/schema";
 import { db } from "../../server/db";
 import { MockAiProvider, setAiProvider } from "../../server/ai/provider";
-import { createAssignment, getApp, newMessageId, ORIGIN, say, signUp } from "../helpers";
+import { createAssignment, enroll, getApp, newMessageId, ORIGIN, say, signUp } from "../helpers";
 
 describe("adversarial scenarios", () => {
   afterEach(() => setAiProvider(null));
@@ -59,6 +59,7 @@ describe("adversarial scenarios", () => {
   it("cannot complete without reaching the summary, even by replaying or racing requests", async () => {
     const teacher = (await signUp("teacher")).c;
     const student = (await signUp("student")).c;
+    await enroll(teacher, student);
     const { id } = await createAssignment(teacher);
     await student.post(`/api/student/assignments/${id}/session`);
     const results = await Promise.all(Array.from({ length: 5 }, () => student.post(`/api/student/assignments/${id}/complete`)));
@@ -69,6 +70,7 @@ describe("adversarial scenarios", () => {
     const teacher = (await signUp("teacher")).c;
     const a = (await signUp("student")).c;
     const b = (await signUp("student")).c;
+    await enroll(teacher, a, b);
     const { id } = await createAssignment(teacher);
     await a.post(`/api/student/assignments/${id}/session`);
     await b.post(`/api/student/assignments/${id}/session`);
@@ -83,6 +85,7 @@ describe("adversarial scenarios", () => {
   it("caps heartbeat credit at wall-clock time", async () => {
     const teacher = (await signUp("teacher")).c;
     const student = (await signUp("student")).c;
+    await enroll(teacher, student);
     const { id } = await createAssignment(teacher);
     await student.post(`/api/student/assignments/${id}/session`);
     const beats = await Promise.all(Array.from({ length: 20 }, () => student.post(`/api/student/assignments/${id}/heartbeat`)));
@@ -102,6 +105,7 @@ describe("adversarial scenarios", () => {
   it("keeps working after many rapid messages (turn lock + limits, no 500s)", async () => {
     const teacher = (await signUp("teacher")).c;
     const student = (await signUp("student")).c;
+    await enroll(teacher, student);
     const { id } = await createAssignment(teacher);
     await student.post(`/api/student/assignments/${id}/session`);
     const results = await Promise.all(Array.from({ length: 8 }, (_, i) => say(student, id, `burst ${i}`)));

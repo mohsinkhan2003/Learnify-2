@@ -13,6 +13,7 @@ import authRoutes from "./auth/auth.routes";
 import teacherRoutes from "./modules/assignments/teacher.routes";
 import studentRoutes from "./modules/tutoring/student.routes";
 import pushRoutes from "./notifications/push.routes";
+import { studentClassRoutes } from "./modules/classes/classes.routes";
 
 /** Builds the Express app (API + security middleware). The frontend is attached by the caller. */
 export function createApp(): Express {
@@ -83,6 +84,7 @@ export function createApp(): Express {
 
   api.use("/auth", authRoutes);
   api.use("/teacher", teacherRoutes);
+  api.use("/student/classes", studentClassRoutes);
   api.use("/student", studentRoutes);
   api.use("/push", pushRoutes);
   api.use(apiNotFound);

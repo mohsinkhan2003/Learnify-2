@@ -40,14 +40,39 @@ export async function signUp(role: "teacher" | "student", school = "Oak High", e
   return { c, user: res.body as { id: string; name: string; email: string }, email };
 }
 
+const defaultClasses = new WeakMap<Client, { id: string; joinCode: string }>();
+
+/** The teacher's default class (created on first use). */
+export async function classOf(teacher: Client) {
+  let cls = defaultClasses.get(teacher);
+  if (!cls) {
+    const res = await teacher.post("/api/teacher/classes", { name: `Class ${uniq()}` });
+    if (res.status !== 201) throw new Error(`create class failed: ${res.status} ${JSON.stringify(res.body)}`);
+    cls = res.body as { id: string; joinCode: string };
+    defaultClasses.set(teacher, cls);
+  }
+  return cls;
+}
+
+/** Students join the teacher's default class with its join code. */
+export async function enroll(teacher: Client, ...students: Client[]) {
+  const { joinCode } = await classOf(teacher);
+  for (const s of students) {
+    const res = await s.post("/api/student/classes/join", { code: joinCode });
+    if (res.status !== 201) throw new Error(`join failed: ${res.status} ${JSON.stringify(res.body)}`);
+  }
+}
+
 export async function createAssignment(teacher: Client, overrides: Record<string, unknown> = {}) {
+  const { id: classId } = await classOf(teacher);
   const res = await teacher.post("/api/teacher/assignments", {
+    classId,
     topic: "Photosynthesis",
     subject: "Biology",
     grade: "Year 10",
     instructions: "Focus on light-dependent reactions.",
     releaseAt: new Date(Date.now() - 1000).toISOString(),
-    audience: "school",
+    audience: "class",
     ...overrides,
   });
   if (res.status !== 201) throw new Error(`create assignment failed: ${res.status} ${JSON.stringify(res.body)}`);

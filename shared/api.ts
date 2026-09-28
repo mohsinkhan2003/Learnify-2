@@ -22,6 +22,45 @@ export interface PublicUser {
 
 export interface AuthProviders {
   google: boolean;
+  /** Whether self-service password reset emails can be sent. */
+  email: boolean;
+}
+
+// ---- Classes ----
+
+export interface ClassDto {
+  id: string;
+  name: string;
+  subject: string | null;
+  /** Formatted like "K7M4-QXPB". */
+  joinCode: string;
+  memberCount: number;
+  createdAt: string;
+  archivedAt: string | null;
+}
+
+export interface ClassMemberDto {
+  id: string;
+  name: string;
+  email: string;
+  joinedAt: string;
+}
+
+export interface ClassDetailDto {
+  class: ClassDto;
+  members: ClassMemberDto[];
+}
+
+export interface StudentClassDto {
+  id: string;
+  name: string;
+  subject: string | null;
+  teacherName: string;
+}
+
+export interface ResetLinkDto {
+  url: string;
+  expiresAt: string;
 }
 
 // ---- Assignments ----
@@ -35,7 +74,9 @@ export interface AssignmentDto {
   grade: string;
   instructions: string;
   teacherName: string | null;
-  audience: "school" | "selected";
+  audience: "class" | "selected" | "school";
+  classId: string | null;
+  className: string | null;
   releaseAt: string;
   dueAt: string | null;
   archivedAt: string | null;
@@ -68,8 +109,19 @@ export interface CreateAssignmentInput {
   instructions: string;
   releaseAt: string;
   dueAt?: string | null;
-  audience: "school" | "selected";
+  classId: string;
+  audience: "class" | "selected";
   studentIds?: string[];
+}
+
+/** Editable after creation. The release time can only change while the assignment is still scheduled. */
+export interface UpdateAssignmentInput {
+  topic?: string;
+  subject?: string;
+  grade?: string;
+  instructions?: string;
+  dueAt?: string | null;
+  releaseAt?: string;
 }
 
 // ---- Insights ----
@@ -136,6 +188,7 @@ export interface TeacherStudentRow {
   id: string;
   name: string;
   email: string;
+  classes: string[];
   assignmentsStarted: number;
   assignmentsCompleted: number;
   totalTimeSeconds: number;

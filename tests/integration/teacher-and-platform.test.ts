@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
-import { createAssignment, getApp, ORIGIN, say, signUp } from "../helpers";
+import { classOf, createAssignment, enroll, getApp, ORIGIN, say, signUp } from "../helpers";
 
 describe("teacher dashboard & analytics", () => {
   it("shows an empty overview for a new teacher", async () => {
@@ -15,7 +15,9 @@ describe("teacher dashboard & analytics", () => {
     const school = `Stats School ${Date.now()}`;
     const teacher = (await signUp("teacher", school)).c;
     const s1 = (await signUp("student", school)).c;
-    await signUp("student", school); // eligible but never starts
+    const s2 = (await signUp("student", school)).c; // eligible but never starts
+    await signUp("student", school); // same school, not in the class: not eligible
+    await enroll(teacher, s1, s2);
     const { id } = await createAssignment(teacher);
     await s1.post(`/api/student/assignments/${id}/session`);
     await say(s1, id, "hello");
@@ -40,6 +42,7 @@ describe("teacher dashboard & analytics", () => {
     const teacher = (await signUp("teacher")).c;
     expect((await teacher.post("/api/teacher/assignments", { topic: "x" })).status).toBe(400);
     const badDue = await teacher.post("/api/teacher/assignments", {
+      classId: (await classOf(teacher)).id,
       topic: "Enzymes",
       subject: "Biology",
       grade: "Year 10",

@@ -1,11 +1,12 @@
 import { describe, expect, it, afterEach } from "vitest";
-import { createAssignment, newMessageId, say, signUp, type Client } from "../helpers";
+import { createAssignment, enroll, newMessageId, say, signUp, type Client } from "../helpers";
 import { setAiProvider, MockAiProvider, type AiProvider } from "../../server/ai/provider";
 import { PRACTICE_QUESTIONS } from "../../shared/tutor";
 
 async function setup() {
   const teacher = (await signUp("teacher")).c;
   const student = await signUp("student");
+  await enroll(teacher, student.c);
   const { id } = await createAssignment(teacher);
   return { teacher, student: student.c, studentId: student.user.id, id };
 }

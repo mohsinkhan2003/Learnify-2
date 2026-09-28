@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createAssignment, say, signUp } from "../helpers";
+import { createAssignment, enroll, say, signUp } from "../helpers";
 import { privacyService } from "../../server/modules/privacy/privacy.service";
 
 describe("privacy operations", () => {
   it("exports a student's data without the password hash", async () => {
     const teacher = (await signUp("teacher")).c;
     const student = await signUp("student");
+    await enroll(teacher, student.c);
     const { id } = await createAssignment(teacher);
     await student.c.post(`/api/student/assignments/${id}/session`);
     await say(student.c, id, "hello");
@@ -19,6 +20,7 @@ describe("privacy operations", () => {
     const teacher = (await signUp("teacher")).c;
     const a = await signUp("student");
     const b = await signUp("student");
+    await enroll(teacher, a.c, b.c);
     const { id } = await createAssignment(teacher);
     for (const s of [a, b]) {
       await s.c.post(`/api/student/assignments/${id}/session`);
@@ -35,6 +37,7 @@ describe("privacy operations", () => {
   it("deleting a teacher archives (not destroys) their assignments", async () => {
     const teacher = await signUp("teacher");
     const student = await signUp("student");
+    await enroll(teacher.c, student.c);
     const { id } = await createAssignment(teacher.c);
     await student.c.post(`/api/student/assignments/${id}/session`);
     await privacyService.deleteUser(teacher.user.id);

@@ -49,4 +49,9 @@ export const rateLimits = {
   transcription: limiter("transcription", MIN, 12, "user"),
   push: limiter("push", 60 * MIN, 30, "user"),
   analytics: limiter("analytics", MIN, 60, "user"),
+  /** Guessing class codes: few attempts per user. */
+  joinClass: limiter("join-class", 15 * MIN, 10, "user"),
+  /** Reset emails / links: per IP+email and per user. */
+  forgotPassword: limiter("forgot", 15 * MIN, 5, "ip+email"),
+  passwordReset: limiter("reset", 15 * MIN, 10, "user"),
 };

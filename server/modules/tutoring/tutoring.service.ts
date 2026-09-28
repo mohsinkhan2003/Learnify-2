@@ -6,6 +6,7 @@ import { db } from "../../db";
 import { AppError, conflict, isUniqueViolation, notFound, tooManyRequests } from "../../lib/errors";
 import { canStudentAccessAssignment } from "../../policies/assignment-access";
 import { assignmentsRepository } from "../assignments/assignments.repository";
+import { classesRepository } from "../classes/classes.repository";
 import { toStudentAssignmentDto } from "../assignments/assignments.dto";
 import { greetingMessage } from "../../ai/prompts";
 import { applyTurn, planTurn } from "../../ai/state-machine";
@@ -20,8 +21,13 @@ export const MAX_MESSAGE_LENGTH = 2000;
 export async function loadStudentAssignment(student: User, id: string): Promise<Assignment> {
   const assignment = await assignmentsRepository.findById(id);
   if (!assignment) throw notFound("Assignment not found", "ASSIGNMENT_NOT_FOUND");
-  const isRecipient = assignment.audience === "selected" ? await assignmentsRepository.isRecipient(id, student.id) : false;
-  if (!canStudentAccessAssignment(student, assignment, isRecipient)) throw notFound("Assignment not found", "ASSIGNMENT_NOT_FOUND");
+  const [isRecipient, isClassMember] = await Promise.all([
+    assignment.audience === "selected" ? assignmentsRepository.isRecipient(id, student.id) : false,
+    assignment.classId ? classesRepository.isMember(assignment.classId, student.id) : false,
+  ]);
+  if (!canStudentAccessAssignment(student, assignment, { isRecipient, isClassMember })) {
+    throw notFound("Assignment not found", "ASSIGNMENT_NOT_FOUND");
+  }
   return assignment;
 }
 
@@ -52,8 +58,9 @@ const refusal = {
 export const tutoringService = {
   async listForStudent(student: User): Promise<StudentAssignmentListItem[]> {
     const rows = await assignmentsRepository.listVisibleForStudent(student);
+    const names = await assignmentsRepository.classNames(rows.map((r) => r.assignment));
     return rows.map(({ assignment, progress }) => ({
-      ...toStudentAssignmentDto(assignment),
+      ...toStudentAssignmentDto(assignment, assignment.classId ? (names.get(assignment.classId) ?? null) : null),
       progress: progress ? toProgressDto(progress) : null,
     }));
   },

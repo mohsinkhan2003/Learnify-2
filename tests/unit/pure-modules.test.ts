@@ -136,13 +136,32 @@ describe("assignment access policy", () => {
     expect(assignmentStatus(a({ archivedAt: now }), now)).toBe("archived");
   });
 
-  it("enforces school, audience, release and archive", () => {
-    expect(canStudentAccessAssignment(student, a({}), false, now)).toBe(true);
-    expect(canStudentAccessAssignment(student, a({ teacherSchool: "Elm" }), false, now)).toBe(false);
-    expect(canStudentAccessAssignment(student, a({ audience: "selected" }), false, now)).toBe(false);
-    expect(canStudentAccessAssignment(student, a({ audience: "selected", teacherSchool: "Elm" }), true, now)).toBe(true);
-    expect(canStudentAccessAssignment(student, a({ notificationTime: new Date(now.getTime() + 1000) }), false, now)).toBe(false);
-    expect(canStudentAccessAssignment(student, a({ archivedAt: now }), false, now)).toBe(false);
-    expect(canStudentAccessAssignment({ ...student, role: "teacher" } as User, a({}), false, now)).toBe(false);
+  const none = { isRecipient: false, isClassMember: false };
+  const member = { isRecipient: false, isClassMember: true };
+  const recipient = { isRecipient: true, isClassMember: true };
+
+  it("class audience requires membership, not a matching school name", () => {
+    expect(canStudentAccessAssignment(student, a({ audience: "class", classId: "c1" }), member, now)).toBe(true);
+    expect(canStudentAccessAssignment(student, a({ audience: "class", classId: "c1" }), none, now)).toBe(false);
+  });
+
+  it("selected audience requires being a recipient and still in the class", () => {
+    expect(canStudentAccessAssignment(student, a({ audience: "selected", classId: "c1" }), recipient, now)).toBe(true);
+    expect(canStudentAccessAssignment(student, a({ audience: "selected", classId: "c1" }), member, now)).toBe(false);
+    expect(
+      canStudentAccessAssignment(student, a({ audience: "selected", classId: "c1" }), { isRecipient: true, isClassMember: false }, now),
+    ).toBe(false);
+    // Legacy selected rows without a class only need the recipient row.
+    expect(
+      canStudentAccessAssignment(student, a({ audience: "selected", classId: null }), { isRecipient: true, isClassMember: false }, now),
+    ).toBe(true);
+  });
+
+  it("legacy school audience, release and archive rules", () => {
+    expect(canStudentAccessAssignment(student, a({}), none, now)).toBe(true);
+    expect(canStudentAccessAssignment(student, a({ teacherSchool: "Elm" }), none, now)).toBe(false);
+    expect(canStudentAccessAssignment(student, a({ notificationTime: new Date(now.getTime() + 1000) }), member, now)).toBe(false);
+    expect(canStudentAccessAssignment(student, a({ archivedAt: now }), member, now)).toBe(false);
+    expect(canStudentAccessAssignment({ ...student, role: "teacher" } as User, a({}), recipient, now)).toBe(false);
   });
 });

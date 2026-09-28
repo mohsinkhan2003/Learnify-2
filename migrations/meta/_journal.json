@@ -15,6 +15,13 @@
       "when": 1790607404100,
       "tag": "0001_production_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790617594032,
+      "tag": "0002_classes_and_password_reset",
+      "breakpoints": true
     }
   ]
 }

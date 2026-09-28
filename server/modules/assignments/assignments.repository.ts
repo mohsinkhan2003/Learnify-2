@@ -1,5 +1,6 @@
 import { and, asc, count, desc, eq, ilike, inArray, isNull, isNotNull, lte, sql } from "drizzle-orm";
 import {
+  classes,
   assignments,
   assignmentStudents,
   studentProgress,
@@ -19,6 +20,19 @@ export interface ProgressWithStudent {
 }
 
 export const assignmentsRepository = {
+  /** Class names for a set of assignments (for DTOs). */
+  async classNames(list: Pick<Assignment, "classId">[]): Promise<Map<string, string>> {
+    const ids = [...new Set(list.map((a) => a.classId).filter((id): id is string => !!id))];
+    if (ids.length === 0) return new Map();
+    const rows = await db.select({ id: classes.id, name: classes.name }).from(classes).where(inArray(classes.id, ids));
+    return new Map(rows.map((r) => [r.id, r.name]));
+  },
+
+  async update(id: string, values: Partial<InsertAssignment>): Promise<Assignment> {
+    const [a] = await db.update(assignments).set(values).where(eq(assignments.id, id)).returning();
+    return a;
+  },
+
   async create(values: InsertAssignment, conn: DbOrTx = db): Promise<Assignment> {
     const [a] = await conn.insert(assignments).values(values).returning();
     return a;

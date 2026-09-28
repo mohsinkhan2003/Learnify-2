@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { AuthProviders } from "@shared/api";
 import { config } from "../config/env";
 import { asyncHandler, parse } from "../lib/http";
-import { conflict, notFound, unauthorized, isUniqueViolation } from "../lib/errors";
+import { badRequest, conflict, notFound, unauthorized, isUniqueViolation } from "../lib/errors";
 import { sign, verify } from "../lib/signed-cookie";
 import { rateLimits } from "../middleware/rate-limit";
 import { currentUser, requireAuth } from "../middleware/auth";
@@ -11,6 +11,10 @@ import { hashPassword, verifyPassword } from "./password";
 import { clearSessionCookie, createSession, deleteSession, setSessionCookie } from "./sessions";
 import { toPublicUser, usersRepository } from "./users.repository";
 import { createAuthRequest, exchangeCode, isGoogleEnabled, type GoogleProfile } from "./google";
+import { consumeReset, requestEmailReset } from "./password-reset";
+import { isEmailEnabled } from "../lib/email";
+import { classesRepository } from "../modules/classes/classes.repository";
+import { normalizeJoinCode } from "../modules/classes/join-code";
 
 const router = Router();
 
@@ -29,7 +33,25 @@ const profileSchema = z.discriminatedUnion("role", [
   z.object({ role: z.literal("student"), school }),
 ]);
 
-const signupSchema = z.intersection(z.object({ email, password, name }), profileSchema);
+const signupSchema = z.intersection(
+  z.object({ email, password, name, classCode: z.string().trim().max(20).optional().or(z.literal("")) }),
+  profileSchema,
+);
+
+/** Resolves an optional class code given at sign-up (students only). Invalid codes fail the sign-up. */
+async function resolveClassCode(raw: string | undefined) {
+  if (!raw) return null;
+  const code = normalizeJoinCode(raw);
+  const cls = code ? await classesRepository.findByJoinCode(code) : undefined;
+  if (!cls) {
+    throw parseError("classCode", "We couldn't find a class with that code. Check it with your teacher, or leave it empty.");
+  }
+  return cls;
+}
+
+function parseError(path: string, message: string) {
+  return badRequest(message, [{ path, message }]);
+}
 const loginSchema = z.object({ email: z.string().trim().min(1).max(255), password: z.string().min(1).max(128) });
 
 async function startSession(res: Response, userId: string) {
@@ -38,7 +60,7 @@ async function startSession(res: Response, userId: string) {
 }
 
 router.get("/providers", (_req, res) => {
-  const providers: AuthProviders = { google: isGoogleEnabled() };
+  const providers: AuthProviders = { google: isGoogleEnabled(), email: isEmailEnabled() };
   res.json(providers);
 });
 
@@ -47,6 +69,7 @@ router.post(
   rateLimits.signup,
   asyncHandler(async (req, res) => {
     const data = parse(signupSchema, req.body);
+    const cls = data.role === "student" ? await resolveClassCode(data.classCode || undefined) : null;
 
     if (await usersRepository.findByEmail(data.email)) {
       throw conflict("An account with this email already exists. Try signing in instead.", "EMAIL_TAKEN");
@@ -67,6 +90,7 @@ router.post(
       throw error;
     }
 
+    if (cls) await classesRepository.addMember(cls.id, user.id);
     await startSession(res, user.id);
     req.log.info({ userId: user.id, role: user.role }, "User signed up");
     res.status(201).json(toPublicUser(user));
@@ -93,6 +117,35 @@ router.post(
 router.get("/session", (req, res) => {
   res.json({ user: req.user ? toPublicUser(req.user) : null });
 });
+
+// ---------------------------------------------------------------------------
+// Password reset
+// ---------------------------------------------------------------------------
+
+router.post(
+  "/password/forgot",
+  rateLimits.forgotPassword,
+  asyncHandler(async (req, res) => {
+    const { email: address } = parse(z.object({ email }), req.body);
+    const user = await usersRepository.findByEmail(address);
+    await requestEmailReset(user, `${req.protocol}://${req.get("host")}`);
+    // Same response whether or not the account exists (no account enumeration).
+    res.json({ ok: true });
+  }),
+);
+
+router.post(
+  "/password/reset",
+  rateLimits.loginPerIp,
+  asyncHandler(async (req, res) => {
+    const input = parse(z.object({ token: z.string().min(20).max(200), password }), req.body);
+    const user = await consumeReset(input.token, input.password);
+    if (!user) throw badRequest("This reset link has expired or was already used. Ask for a new one.", undefined, "RESET_LINK_INVALID");
+    await startSession(res, user.id);
+    req.log.info({ userId: user.id }, "Password reset");
+    res.json(toPublicUser(user));
+  }),
+);
 
 router.get("/me", requireAuth, (req, res) => {
   res.json(toPublicUser(currentUser(req)));

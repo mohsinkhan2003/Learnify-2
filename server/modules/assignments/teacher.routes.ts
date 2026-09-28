@@ -1,12 +1,12 @@
 import { Router } from "express";
 import { z } from "zod";
-import type { ChatMessageDto, CreateAssignmentInput, Paginated, TeacherStudentRow } from "@shared/api";
+import type { ChatMessageDto, CreateAssignmentInput, Paginated, TeacherStudentRow, UpdateAssignmentInput } from "@shared/api";
 import { asyncHandler, parse, uuidParam } from "../../lib/http";
 import { currentUser, requireRole } from "../../middleware/auth";
 import { rateLimits } from "../../middleware/rate-limit";
 import { analyticsService } from "../analytics/analytics.service";
 import { assignmentsService, loadOwnedAssignment } from "./assignments.service";
-import { assignmentsRepository } from "./assignments.repository";
+import { teacherClassRoutes } from "../classes/classes.routes";
 import { toChatMessageDto } from "../tutoring/tutoring.dto";
 import { tutoringRepository } from "../tutoring/tutoring.repository";
 
@@ -24,7 +24,8 @@ export const createAssignmentSchema = z
     instructions: z.string().trim().max(2000, "Tutor instructions must be under 2000 characters").default(""),
     releaseAt: isoDate,
     dueAt: isoDate.nullable().optional(),
-    audience: z.enum(["school", "selected"]).default("school"),
+    classId: z.string({ required_error: "Please choose a class" }).uuid("Please choose a class"),
+    audience: z.enum(["class", "selected"]).default("class"),
     studentIds: z.array(z.string().uuid()).max(500, "Select at most 500 students").optional(),
   })
   .refine((d) => new Date(d.releaseAt).getTime() < Date.now() + YEAR, {
@@ -93,6 +94,29 @@ router.post(
   }),
 );
 
+const updateAssignmentSchema = z
+  .object({
+    topic: z.string().trim().min(3, "Topic must be at least 3 characters").max(200, "Topic is too long").optional(),
+    subject: z.string().trim().min(2, "Please choose a subject").max(100).optional(),
+    grade: z.string().trim().min(1, "Please choose a year/grade").max(50).optional(),
+    instructions: z.string().trim().max(2000, "Tutor instructions must be under 2000 characters").optional(),
+    releaseAt: isoDate.optional(),
+    dueAt: isoDate.nullable().optional(),
+  })
+  .strict()
+  .refine((d) => !d.releaseAt || new Date(d.releaseAt).getTime() < Date.now() + YEAR, {
+    path: ["releaseAt"],
+    message: "Release time must be within a year",
+  });
+
+router.patch(
+  "/assignments/:id",
+  asyncHandler(async (req, res) => {
+    const input: UpdateAssignmentInput = parse(updateAssignmentSchema, req.body);
+    res.json(await assignmentsService.update(currentUser(req), parse(uuidParam, req.params.id), input));
+  }),
+);
+
 /** One student's transcript for an assignment the teacher owns. */
 router.get(
   "/assignments/:id/students/:studentId/messages",
@@ -115,13 +139,6 @@ router.get(
   }),
 );
 
-/** Lightweight roster for the "choose students" step of assignment creation. */
-router.get(
-  "/roster",
-  asyncHandler(async (req, res) => {
-    const q = parse(z.object({ search: z.string().trim().max(100).optional() }), req.query);
-    res.json(await assignmentsRepository.studentsAtSchool(currentUser(req).school, { search: q.search, limit: 500, offset: 0 }));
-  }),
-);
+router.use("/classes", teacherClassRoutes);
 
 export default router;

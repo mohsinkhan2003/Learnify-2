@@ -10,12 +10,14 @@ import type {
 import type { ProgressStatus, TutorStage } from "@shared/tutor";
 import { toIso } from "../../lib/http";
 import { assignmentsRepository, type ProgressWithStudent } from "../assignments/assignments.repository";
+import { classesRepository } from "../classes/classes.repository";
 import { toAssignmentDto } from "../assignments/assignments.dto";
 import { computeInsights, longSessionThreshold } from "./insights";
 
 /**
  * Metric definitions (keep in sync with docs/ARCHITECTURE.md → Analytics):
- * - eligible:  students in the assignment's audience (school roster or selected recipients),
+ * - eligible:  students in the assignment's audience (class members, selected recipients, or —
+ *              for legacy demo assignments — the school roster),
  *              never fewer than students who actually started.
  * - started:   progress status other than not_started.
  * - completed: status completed. Completion rate = completed / eligible.
@@ -62,10 +64,14 @@ export function buildAssignmentStats(rows: StudentProgressRow[], eligibleRaw: nu
 /** Groups progress by assignment and computes rows + stats with a per-assignment long-session threshold. */
 async function statsFor(teacher: User, list: Assignment[], now = new Date()) {
   const ids = list.map((a) => a.id);
-  const [progress, recipientCounts, schoolCount] = await Promise.all([
+  const classIds = [...new Set(list.map((a) => a.classId).filter((id): id is string => !!id))];
+  const hasSchoolAudience = list.some((a) => a.audience === "school");
+  const [progress, recipientCounts, memberCounts, schoolCount, classNames] = await Promise.all([
     assignmentsRepository.progressForAssignments(ids),
     assignmentsRepository.recipientCounts(ids),
-    assignmentsRepository.countStudentsAtSchool(teacher.school),
+    classesRepository.memberCounts(classIds),
+    hasSchoolAudience ? assignmentsRepository.countStudentsAtSchool(teacher.school) : Promise.resolve(0),
+    assignmentsRepository.classNames(list),
   ]);
 
   const byAssignment = new Map<string, ProgressWithStudent[]>();
@@ -79,8 +85,14 @@ async function statsFor(teacher: User, list: Assignment[], now = new Date()) {
     const raw = byAssignment.get(assignment.id) ?? [];
     const threshold = longSessionThreshold(raw.filter((r) => r.progress.status !== "not_started").map((r) => r.progress.totalTimeSpent));
     const rows = raw.map((r) => toProgressRow(r, threshold, now));
-    const eligible = assignment.audience === "selected" ? (recipientCounts.get(assignment.id) ?? 0) : schoolCount;
-    return { assignment, rows, stats: buildAssignmentStats(rows, eligible) };
+    const eligible =
+      assignment.audience === "selected"
+        ? (recipientCounts.get(assignment.id) ?? 0)
+        : assignment.audience === "class"
+          ? (memberCounts.get(assignment.classId ?? "") ?? 0)
+          : schoolCount;
+    const className = assignment.classId ? (classNames.get(assignment.classId) ?? null) : null;
+    return { assignment, className, rows, stats: buildAssignmentStats(rows, eligible) };
   });
 }
 
@@ -93,7 +105,10 @@ export const analyticsService = {
     const items = page.slice(0, opts.limit);
     const withStats = await statsFor(teacher, items);
     return {
-      items: withStats.map<TeacherAssignmentListItem>(({ assignment, stats }) => ({ ...toAssignmentDto(assignment), stats })),
+      items: withStats.map<TeacherAssignmentListItem>(({ assignment, className, stats }) => ({
+        ...toAssignmentDto(assignment, className),
+        stats,
+      })),
       nextOffset: hasMore ? opts.offset + opts.limit : null,
     };
   },
@@ -142,12 +157,13 @@ export const analyticsService = {
         needsAttention: attentionStudents.size,
       },
       attention: attention.slice(0, 12),
-      recentAssignments: all.slice(0, 6).map(({ assignment, stats }) => ({ ...toAssignmentDto(assignment), stats })),
+      recentAssignments: all.slice(0, 6).map(({ assignment, className, stats }) => ({ ...toAssignmentDto(assignment, className), stats })),
     };
   },
 
   async students(teacher: User, opts: { search?: string; limit: number; offset: number }) {
-    const page = await assignmentsRepository.studentsAtSchool(teacher.school, { ...opts, limit: opts.limit + 1 });
+    // Students are the verified members of the teacher's classes.
+    const page = await classesRepository.studentsOfTeacher(teacher.id, { ...opts, limit: opts.limit + 1 });
     const hasMore = page.length > opts.limit;
     const students = page.slice(0, opts.limit);
 

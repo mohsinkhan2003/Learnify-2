@@ -114,7 +114,7 @@ describe("authentication", () => {
 
   it("reports providers and hides Google routes when not configured", async () => {
     const c = client();
-    expect((await c.get("/api/auth/providers")).body).toEqual({ google: false });
+    expect((await c.get("/api/auth/providers")).body).toEqual({ google: false, email: false });
     expect((await c.get("/api/auth/google/start")).status).toBe(404);
   });
 

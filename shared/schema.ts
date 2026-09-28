@@ -48,10 +48,77 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
 // ---------------------------------------------------------------------------
+// Classes: the verified link between a teacher and students (join by code)
+// ---------------------------------------------------------------------------
+
+export const classes = pgTable(
+  "classes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    teacherId: uuid("teacher_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 100 }).notNull(),
+    subject: varchar("subject", { length: 100 }),
+    /** Short code students type to join, e.g. "K7M4QXPB". Regenerable by the teacher. */
+    joinCode: varchar("join_code", { length: 16 }).notNull().unique(),
+    archivedAt: tz("archived_at"),
+    createdAt: tz("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    teacherIdx: index("classes_teacher_idx").on(t.teacherId),
+  }),
+);
+
+export const classMembers = pgTable(
+  "class_members",
+  {
+    classId: uuid("class_id")
+      .notNull()
+      .references(() => classes.id, { onDelete: "cascade" }),
+    studentId: uuid("student_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    joinedAt: tz("joined_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.classId, t.studentId] }),
+    studentIdx: index("class_members_student_idx").on(t.studentId),
+  }),
+);
+
+export type Class = typeof classes.$inferSelect;
+
+/** Single-use, short-lived password reset tokens (only the SHA-256 hash is stored). */
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    /** Teacher who generated the link, or null for self-service email resets. */
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    expiresAt: tz("expires_at").notNull(),
+    usedAt: tz("used_at"),
+    createdAt: tz("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    userIdx: index("password_reset_tokens_user_idx").on(t.userId),
+  }),
+);
+
+// ---------------------------------------------------------------------------
 // Assignments
 // ---------------------------------------------------------------------------
 
-export const ASSIGNMENT_AUDIENCES = ["school", "selected"] as const;
+/**
+ * - class:    every member of a class (verified by join code)
+ * - selected: chosen members of a class
+ * - school:   legacy (demo) audience — everyone who claimed the same school name. Not offered for new assignments.
+ */
+export const ASSIGNMENT_AUDIENCES = ["class", "selected", "school"] as const;
 export type AssignmentAudience = (typeof ASSIGNMENT_AUDIENCES)[number];
 
 export const assignments = pgTable(
@@ -71,12 +138,14 @@ export const assignments = pgTable(
     notificationTime: tz("notification_time").notNull(),
     notificationSent: boolean("notification_sent").notNull().default(false),
     audience: varchar("audience", { length: 20 }).notNull().default("school"),
+    classId: uuid("class_id").references(() => classes.id, { onDelete: "set null" }),
     dueAt: tz("due_at"),
     archivedAt: tz("archived_at"),
     createdAt: tz("created_at").defaultNow().notNull(),
   },
   (t) => ({
     teacherCreatedIdx: index("assignments_teacher_created_idx").on(t.teacherId, t.createdAt),
+    classIdx: index("assignments_class_idx").on(t.classId),
     schoolReleaseIdx: index("assignments_school_release_idx").on(t.teacherSchool, t.notificationTime),
     pendingNotificationIdx: index("assignments_pending_notification_idx")
       .on(t.notificationTime)
