@@ -18,6 +18,8 @@ const envSchema = z
     APP_URL: z.string().url().optional(),
     /** Extra origins allowed to call the API with credentials (comma-separated). */
     CORS_ORIGINS: z.string().default(""),
+    // Origins allowed to embed the app in a frame (comma-separated). Empty = no framing.
+    FRAME_ANCESTORS: z.string().default(""),
     TRUST_PROXY: z.coerce.number().int().nonnegative().default(1),
     /** Secure cookies. Defaults to true in production. */
     COOKIE_SECURE: bool.optional(),
@@ -93,8 +95,9 @@ const envSchema = z
 export type Env = z.infer<typeof envSchema>;
 
 export function loadConfig(source: NodeJS.ProcessEnv = process.env) {
-  // On Render, fall back to the service's public URL so APP_URL needn't be set by hand.
-  const parsed = envSchema.safeParse({ ...source, APP_URL: source.APP_URL || source.RENDER_EXTERNAL_URL || undefined });
+  // On Render / Hugging Face Spaces, fall back to the platform's public URL so APP_URL needn't be set by hand.
+  const platformUrl = source.RENDER_EXTERNAL_URL || (source.SPACE_HOST ? `https://${source.SPACE_HOST}` : undefined);
+  const parsed = envSchema.safeParse({ ...source, APP_URL: source.APP_URL || platformUrl || undefined });
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`).join("\n");
     throw new Error(`Invalid environment configuration:\n${issues}`);
@@ -113,6 +116,9 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env) {
     appOrigin,
     allowedOrigins: [appOrigin, ...env.CORS_ORIGINS.split(",").map((o) => o.trim())].filter((o): o is string => !!o),
     trustProxy: env.TRUST_PROXY,
+    frameAncestors: env.FRAME_ANCESTORS.split(",")
+      .map((o) => o.trim())
+      .filter(Boolean),
     session: {
       ttlMs: env.SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,
       cookieSecure: env.COOKIE_SECURE ?? isProduction,

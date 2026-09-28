@@ -67,6 +67,28 @@ don't work reliably (or at all) on per-request functions without a rewrite.
 - Render free services have 512 MB RAM; `DATABASE_POOL_MAX=5` is set in `render.yaml` to stay
   well within Neon's connection limit.
 
+## Free hosting without a card: Hugging Face Spaces
+
+A free Docker Space runs the app from this repository's `Dockerfile` (the database stays on
+Neon). A GitHub Action (`.github/workflows/deploy-huggingface.yml`) creates the Space, copies
+the secrets into it and uploads the code on every push — no local git or Docker needed.
+
+1. Create a free account at <https://huggingface.co/join>.
+2. **Settings → Access Tokens → Create new token**, type **Write**; copy it.
+3. In GitHub: repository **Settings → Secrets and variables → Actions → New repository secret**,
+   add `HF_TOKEN` (the token), `DATABASE_URL` (Neon, pooling off) and `OPENAI_API_KEY`.
+   Optionally add a *variable* `HF_SPACE` to choose the Space name (default `learnify`).
+4. **Actions → Deploy to Hugging Face →** open the latest run → **Re-run all jobs** (or push
+   any commit). The log ends with the Space and app URLs.
+5. The first Docker build on Hugging Face takes ~5–10 minutes (watch the Space's **Logs**
+   tab). Open the app at `https://<user>-learnify.hf.space`; inside the huggingface.co page it
+   only shows an "Open Learnify" button, because browsers block sign-in cookies in that frame.
+
+Notes: the Space must be public for students to reach it, so its source is visible (secrets are
+not). Free Spaces sleep after ~48 hours without visitors and wake on the next visit.
+`APP_URL` is derived from Hugging Face's `SPACE_HOST`; migrations run on start
+(`RUN_MIGRATIONS=true`).
+
 ## Build & run with Docker
 
 ```bash

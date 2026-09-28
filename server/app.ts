@@ -42,10 +42,12 @@ export function createApp(): Express {
                 objectSrc: ["'none'"],
                 baseUri: ["'self'"],
                 formAction: ["'self'"],
-                frameAncestors: ["'none'"],
+                // Framed pages only render an "open in a new tab" link (client/src/main.tsx).
+                frameAncestors: config.frameAncestors.length ? config.frameAncestors : ["'none'"],
                 upgradeInsecureRequests: config.session.cookieSecure ? [] : null,
               },
             },
+      xFrameOptions: config.frameAncestors.length ? false : { action: "sameorigin" },
       referrerPolicy: { policy: "strict-origin-when-cross-origin" },
       strictTransportSecurity: config.isProduction ? { maxAge: 31536000, includeSubDomains: true } : false,
     }),
