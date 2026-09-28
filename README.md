@@ -1,79 +1,112 @@
 # Learnify
 
-An AI homework tutor. Teachers create assignments; students work through each one in a structured,
-voice-first conversation with an AI tutor that assesses before it teaches. Teachers see per-student
-progress and analytics.
+Learnify is an AI homework tutor for schools. Teachers set a topic; each student works through it
+in a structured, voice-first conversation with an AI tutor that asks questions, gives hints and
+checks understanding instead of handing out answers. Teachers see completion, active time and
+explainable "may need attention" signals — with the full transcript as evidence.
 
-## Stack
+| | |
+|---|---|
+| **Client** | React 18, TypeScript, Vite, Wouter, TanStack Query, Tailwind + shadcn/ui, installable PWA |
+| **Server** | Node 20+/22, Express 4, TypeScript, Drizzle ORM, PostgreSQL, pino |
+| **AI** | OpenAI (`gpt-4o-mini` structured outputs, `whisper-1` fallback STT, moderation); browser Web Speech API |
+| **Tests** | Vitest (unit + Postgres integration), Playwright (E2E + axe accessibility) |
 
-- **Client:** React 18, TypeScript, Vite, Wouter, TanStack Query, shadcn/ui + Tailwind, installable PWA
-- **Server:** Express 4, TypeScript, Drizzle ORM, PostgreSQL
-- **AI:** OpenAI chat completions (default `gpt-4o-mini`), browser Web Speech API for voice
-- **Auth:** email/password (bcrypt), opaque bearer session tokens (only SHA-256 hashes are stored)
+Documentation: [Architecture](docs/ARCHITECTURE.md) · [AI tutor](docs/AI_TUTOR.md) ·
+[Security & privacy](docs/SECURITY.md) · [Deployment](docs/DEPLOYMENT.md) ·
+[Original audit](docs/PRODUCTION_AUDIT.md) · [Readiness report](docs/PRODUCTION_READINESS_REPORT.md)
 
-## Getting started
+## Quick start (local)
 
-Requirements: Node 20+ and a PostgreSQL database.
+Prerequisites: **Node.js ≥ 20.12** (22 recommended) and **PostgreSQL ≥ 14**.
 
 ```bash
-npm install
-cp .env.example .env        # fill in DATABASE_URL and OPENAI_API_KEY
-export $(grep -v '^#' .env | xargs)   # or use your preferred env loader
-npm run db:push             # create/update tables
-npm run dev                 # http://localhost:5000
+npm ci
+cp .env.example .env            # AI_PROVIDER=mock works without an OpenAI key
+# edit DATABASE_URL in .env, then:
+createdb learnify               # or create the database any way you like
+npm run db:migrate              # applies migrations/
+npm run dev                     # http://localhost:5000 (API + Vite with HMR)
 ```
 
-## Scripts
+Sign up as a teacher and as a student **with the same school name** to see the full flow.
+With `AI_PROVIDER=mock` the tutor is a deterministic offline stand-in — set `AI_PROVIDER=openai`
+and `OPENAI_API_KEY` for the real tutor.
 
-| Script | What it does |
+## Commands
+
+| Command | Purpose |
 |---|---|
-| `npm run dev` | API + Vite dev server with HMR on `PORT` (default 5000) |
-| `npm run build` | Builds the client to `dist/public` and bundles the server to `dist/index.js` |
-| `npm start` | Runs the production build |
-| `npm run check` | TypeScript type-check |
-| `npm test` | Unit tests (Vitest) |
-| `npm run db:push` | Syncs `shared/schema.ts` to the database with drizzle-kit |
+| `npm run dev` | Development server (Express + Vite middleware, pretty logs, loads `.env`) |
+| `npm run build` | Client → `dist/public`, server → `dist/index.js`, migration runner → `dist/migrate.js` |
+| `npm start` | Run the production build (`NODE_ENV=production`) |
+| `npm run check` | TypeScript (strict) |
+| `npm run lint` / `npm run format:check` | ESLint / Prettier |
+| `npm test` | Unit + integration tests (needs `TEST_DATABASE_URL`, default `postgresql://postgres@localhost:5432/learnify_test`) — the schema is recreated on each run |
+| `npm run test:e2e` | Playwright E2E + accessibility (needs `npm run build` and `E2E_DATABASE_URL`) |
+| `npm run db:generate` | Create a new SQL migration from `shared/schema.ts` changes |
+| `npm run db:migrate` | Apply migrations (development; uses `.env`) |
+| `npm run db:migrate:prod` | Apply migrations from the production build (`node dist/migrate.js`) |
 
 ## Configuration
 
-All configuration comes from environment variables, validated at startup in `server/config.ts`.
-See [`.env.example`](.env.example) for the full list. Required: `DATABASE_URL`, `OPENAI_API_KEY`.
+All configuration is environment variables, validated at startup in
+[`server/config/env.ts`](server/config/env.ts); the server refuses to start with a readable error
+if something required is missing. [`.env.example`](.env.example) documents every variable.
 
-Push notifications are optional. To enable them, generate keys with `npx web-push generate-vapid-keys`
-and set `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`.
+Required in production: `DATABASE_URL`, `APP_URL`, `OPENAI_API_KEY`.
+Optional: `VAPID_*` (push notifications), `GOOGLE_*` + `SESSION_SECRET` (Google sign-in).
 
-## Deploying
+## Database & migrations
 
-```bash
-docker build -t learnify .
-docker run -p 5000:5000 --env-file .env learnify
-```
+The schema lives in [`shared/schema.ts`](shared/schema.ts). Migrations are plain SQL in
+[`migrations/`](migrations), generated by drizzle-kit and reviewed by hand. `db:migrate` applies
+them inside a Postgres advisory lock, so it is safe to run from several instances.
 
-The image runs as a non-root user and has a health check on `GET /api/health`. When you deploy a
-schema change, run `npm run db:push` against the production database before rolling out.
+Databases created by the original demo (with `drizzle-kit push`) are detected automatically: the
+baseline migration is recorded as applied and only the new, non-destructive migrations run. See
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#migrating-an-existing-demo-database).
 
-Put the app behind a TLS-terminating proxy and set `TRUST_PROXY` to the number of proxy hops, so rate
-limiting sees the real client IPs.
+Changing the schema: edit `shared/schema.ts` → `npm run db:generate` → review the SQL →
+commit → run `db:migrate` in each environment. Never use `drizzle-kit push` against production.
+
+## AI configuration
+
+See [docs/AI_TUTOR.md](docs/AI_TUTOR.md) for the state machine, prompts, safety and cost controls.
+Key knobs: `OPENAI_MODEL`, `AI_MAX_OUTPUT_TOKENS`, `AI_CONTEXT_MESSAGES`,
+`AI_MAX_TURNS_PER_ASSIGNMENT`, `AI_DAILY_TURNS_PER_USER`, `AI_DAILY_AUDIO_SECONDS_PER_USER`,
+`OPENAI_MODERATION`, `TRANSCRIPTION_ENABLED`. Every paid call is recorded in the `ai_usage` table.
+
+## Push notifications
+
+1. `npx web-push generate-vapid-keys`
+2. Set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (a `mailto:` or `https:` contact).
+3. Students opt in from their home page or account menu. On iPhone/iPad, notifications require
+   the app to be added to the Home Screen (iOS 16.4+).
+
+## Deployment
+
+`docker build -t learnify .` produces a non-root image with a health check. Run
+`node dist/migrate.js` as a release step (or set `RUN_MIGRATIONS=true`). Full guide:
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Project layout
 
 ```
-client/src/        React app (pages, components, hooks)
-client/public/     PWA manifest, service worker, icons
-server/index.ts    App bootstrap: security headers, error handling, background jobs, shutdown
-server/routes.ts   REST API (assignments, chat, progress, push)
-server/auth*.ts    Signup/login/session handling
-server/tutor.ts    Tutor prompt, OpenAI call, summary detection
-server/push.ts     Web push delivery and scheduled notifications
-server/storage.ts  Database access
-shared/schema.ts   Drizzle schema and shared types
+client/src/
+  app/            App shell: router, providers, guards, theme, error boundary
+  components/     ui/ (shadcn primitives) · common/ (states, metrics, logo) · layout/ (shells)
+  features/       auth · teacher · student · tutoring (voice/) · notifications · pwa
+  lib/            api client, query client & keys, formatting
+server/
+  app.ts          Express app factory (security middleware, routes, errors)
+  index.ts        Bootstrap: frontend, jobs, graceful shutdown
+  config/ db/ lib/ middleware/ policies/
+  auth/           passwords, sessions, Google OAuth, routes
+  ai/             provider (openai | mock), prompts, schemas, state machine, tutor service, usage
+  modules/        assignments · tutoring · analytics · privacy
+  notifications/  web push
+shared/           schema.ts (Drizzle), api.ts (API contract types), tutor.ts (stages)
+migrations/       SQL migrations
+tests/  e2e/      Vitest and Playwright suites
 ```
-
-## Security notes
-
-- Every `/api` route except auth, health and the VAPID public key requires a valid session.
-- Teachers can only see their own assignments and the progress on them. Students can only see
-  assignments from their own school and only their own conversation and progress.
-- Only the server can move progress to `summary_provided`. Students can mark an assignment
-  `completed` only after the tutor's summary, or after sustained effort (3+ minutes and 15+ messages).
-- Login/signup and AI chat are rate-limited. Request bodies are never logged.
