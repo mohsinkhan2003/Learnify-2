@@ -58,7 +58,8 @@ function ArchiveButton({ assignment }: { assignment: AssignmentDto }) {
         <AlertDialogHeader>
           <AlertDialogTitle>Archive this assignment?</AlertDialogTitle>
           <AlertDialogDescription>
-            Students will no longer see it or be able to continue. All progress and conversations are kept, and you can restore it at any time.
+            Students will no longer see it or be able to continue. All progress and conversations are kept, and you can restore it at any
+            time.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -116,10 +117,19 @@ export default function AssignmentDetailPage() {
       </div>
 
       <section aria-label="Assignment metrics" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatTile label="Completed" value={`${stats.completed} / ${stats.eligible}`} hint={`${formatPercent(stats.eligible ? stats.completed / stats.eligible : null)} of assigned students`} />
+        <StatTile
+          label="Completed"
+          value={`${stats.completed} / ${stats.eligible}`}
+          hint={`${formatPercent(stats.eligible ? stats.completed / stats.eligible : null)} of assigned students`}
+        />
         <StatTile label="Started" value={stats.started} hint={`${stats.readyToComplete} ready to hand in`} />
         <StatTile label="Average time" value={formatDuration(stats.avgTimeSeconds)} hint="Active time, students who started" />
-        <StatTile label="May need attention" value={stats.needsAttention} hint="See evidence in the table" tone={stats.needsAttention ? "attention" : "default"} />
+        <StatTile
+          label="May need attention"
+          value={stats.needsAttention}
+          hint="See evidence in the table"
+          tone={stats.needsAttention ? "attention" : "default"}
+        />
       </section>
 
       <div className="rounded-lg border bg-card p-5 shadow-sm">
@@ -138,7 +148,9 @@ export default function AssignmentDetailPage() {
           Tutor guidance <ChevronDown className={`size-4 transition-transform ${showGuidance ? "rotate-180" : ""}`} aria-hidden />
         </button>
         {showGuidance && (
-          <p className="mt-2 whitespace-pre-wrap rounded-md bg-surface-muted p-3 text-sm text-muted-foreground">{assignment.instructions || "No extra guidance — the tutor uses its default approach."}</p>
+          <p className="mt-2 whitespace-pre-wrap rounded-md bg-surface-muted p-3 text-sm text-muted-foreground">
+            {assignment.instructions || "No extra guidance — the tutor uses its default approach."}
+          </p>
         )}
       </div>
 
@@ -150,7 +162,11 @@ export default function AssignmentDetailPage() {
           <EmptyState
             icon={<MessageSquareText />}
             title="No one has started yet"
-            description={assignment.status === "scheduled" ? "Students will see this assignment once it's released." : "Insights will appear here as soon as students begin their tutoring sessions."}
+            description={
+              assignment.status === "scheduled"
+                ? "Students will see this assignment once it's released."
+                : "Insights will appear here as soon as students begin their tutoring sessions."
+            }
           />
         ) : (
           <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
@@ -215,7 +231,9 @@ export default function AssignmentDetailPage() {
                 {s.studentName}
               </li>
             ))}
-            {notStartedTotal > notStarted.length && <li className="px-2 py-1 text-sm text-muted-foreground">and {notStartedTotal - notStarted.length} more</li>}
+            {notStartedTotal > notStarted.length && (
+              <li className="px-2 py-1 text-sm text-muted-foreground">and {notStartedTotal - notStarted.length} more</li>
+            )}
           </ul>
         </section>
       )}

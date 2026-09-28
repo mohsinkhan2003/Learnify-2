@@ -145,10 +145,7 @@ export const assignmentsRepository = {
     return db
       .select({ assignment: assignments, progress: studentProgress })
       .from(assignments)
-      .leftJoin(
-        studentProgress,
-        and(eq(studentProgress.assignmentId, assignments.id), eq(studentProgress.studentId, student.id)),
-      )
+      .leftJoin(studentProgress, and(eq(studentProgress.assignmentId, assignments.id), eq(studentProgress.studentId, student.id)))
       .where(studentVisibilityFilter(student))
       .orderBy(desc(assignments.notificationTime))
       .limit(limit);

@@ -5,7 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 /** Stat tile: label, value (proportional figures), optional context line. */
-export function StatTile({ label, value, hint, icon, tone = "default" }: {
+export function StatTile({
+  label,
+  value,
+  hint,
+  icon,
+  tone = "default",
+}: {
   label: string;
   value: ReactNode;
   hint?: ReactNode;

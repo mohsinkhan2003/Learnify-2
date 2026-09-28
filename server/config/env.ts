@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { loadDotEnv } from "./dotenv";
 
-const bool = z
-  .enum(["true", "false", "1", "0"])
-  .transform((v) => v === "true" || v === "1");
+loadDotEnv();
+
+const bool = z.enum(["true", "false", "1", "0"]).transform((v) => v === "true" || v === "1");
 
 const envSchema = z
   .object({
@@ -41,7 +42,11 @@ const envSchema = z
     AI_DAILY_AUDIO_SECONDS_PER_USER: z.coerce.number().int().positive().default(1800),
     TRANSCRIPTION_ENABLED: bool.default("true"),
     MAX_AUDIO_SECONDS: z.coerce.number().int().positive().max(300).default(60),
-    MAX_AUDIO_BYTES: z.coerce.number().int().positive().default(3 * 1024 * 1024),
+    MAX_AUDIO_BYTES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(3 * 1024 * 1024),
 
     // Push
     VAPID_PUBLIC_KEY: z.string().optional(),
@@ -66,10 +71,18 @@ const envSchema = z
       ctx.addIssue({ code: "custom", path: ["OPENAI_API_KEY"], message: "OPENAI_API_KEY is required in production" });
     }
     if (googleEnabled && !env.SESSION_SECRET) {
-      ctx.addIssue({ code: "custom", path: ["SESSION_SECRET"], message: "SESSION_SECRET (32+ chars) is required when Google sign-in is enabled" });
+      ctx.addIssue({
+        code: "custom",
+        path: ["SESSION_SECRET"],
+        message: "SESSION_SECRET (32+ chars) is required when Google sign-in is enabled",
+      });
     }
     if (googleEnabled && isProd && !env.GOOGLE_REDIRECT_URI) {
-      ctx.addIssue({ code: "custom", path: ["GOOGLE_REDIRECT_URI"], message: "GOOGLE_REDIRECT_URI is required when Google sign-in is enabled" });
+      ctx.addIssue({
+        code: "custom",
+        path: ["GOOGLE_REDIRECT_URI"],
+        message: "GOOGLE_REDIRECT_URI is required when Google sign-in is enabled",
+      });
     }
   });
 
@@ -93,9 +106,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env) {
     logLevel: env.LOG_LEVEL ?? (env.NODE_ENV === "test" ? "silent" : isProduction ? "info" : "debug"),
     database: { url: env.DATABASE_URL, poolMax: env.DATABASE_POOL_MAX },
     appOrigin,
-    allowedOrigins: [appOrigin, ...env.CORS_ORIGINS.split(",").map((o) => o.trim())].filter(
-      (o): o is string => !!o,
-    ),
+    allowedOrigins: [appOrigin, ...env.CORS_ORIGINS.split(",").map((o) => o.trim())].filter((o): o is string => !!o),
     trustProxy: env.TRUST_PROXY,
     session: {
       ttlMs: env.SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,

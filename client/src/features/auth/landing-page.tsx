@@ -5,9 +5,17 @@ import { Button } from "@/components/ui/button";
 
 const FEATURES = [
   { icon: Mic, title: "Voice-first tutoring", body: "Students talk through homework naturally, with a typed transcript kept for review." },
-  { icon: Sparkles, title: "Guides, doesn't tell", body: "The tutor asks questions, gives hints and checks understanding instead of handing out answers." },
+  {
+    icon: Sparkles,
+    title: "Guides, doesn't tell",
+    body: "The tutor asks questions, gives hints and checks understanding instead of handing out answers.",
+  },
   { icon: BarChart3, title: "Explainable insights", body: "Teachers see progress, time and evidence-based signals — never opaque labels." },
-  { icon: ShieldCheck, title: "Safe by design", body: "Content filtering, teacher visibility of every conversation, and minimal data collection." },
+  {
+    icon: ShieldCheck,
+    title: "Safe by design",
+    body: "Content filtering, teacher visibility of every conversation, and minimal data collection.",
+  },
 ];
 
 export default function LandingPage() {
@@ -34,8 +42,8 @@ export default function LandingPage() {
             <span className="bg-gradient-to-r from-primary to-accent-strong bg-clip-text text-transparent">patient tutor</span>
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-lg leading-7 text-muted-foreground">
-            Teachers set a topic. Learnify guides each student through it — by voice or text — then shows teachers exactly where
-            students thrived and where they may need help.
+            Teachers set a topic. Learnify guides each student through it — by voice or text — then shows teachers exactly where students
+            thrived and where they may need help.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Button asChild size="lg">

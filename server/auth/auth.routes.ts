@@ -22,10 +22,7 @@ const name = z.string().trim().min(1, "Please enter your name").max(100, "Name i
 const school = z.string().trim().min(2, "Please enter your school").max(255, "School name is too long");
 const subject = z.string().trim().min(2, "Please enter the subject you teach").max(100, "Subject is too long");
 const email = z.string().trim().email("Please enter a valid email address").max(255);
-const password = z
-  .string()
-  .min(8, "Password must be at least 8 characters")
-  .max(128, "Password must be at most 128 characters");
+const password = z.string().min(8, "Password must be at least 8 characters").max(128, "Password must be at most 128 characters");
 
 const profileSchema = z.discriminatedUnion("role", [
   z.object({ role: z.literal("teacher"), school, subject }),

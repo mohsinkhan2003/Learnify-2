@@ -14,3 +14,5 @@ vite.config.ts.*
 .local
 .config
 .cache
+playwright-report
+test-results

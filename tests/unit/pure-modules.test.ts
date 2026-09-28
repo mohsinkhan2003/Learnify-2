@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { computeInsights, longSessionThreshold, median, notStartedInsight, LONG_SESSION_MIN_SECONDS } from "../../server/modules/analytics/insights";
+import {
+  computeInsights,
+  longSessionThreshold,
+  median,
+  notStartedInsight,
+  LONG_SESSION_MIN_SECONDS,
+} from "../../server/modules/analytics/insights";
 import { buildSystemPrompt, sanitizeUntrusted, LEAK_CANARY, greetingMessage } from "../../server/ai/prompts";
 import { parseTutorOutput } from "../../server/ai/schemas";
 import { sign, verify } from "../../server/lib/signed-cookie";
@@ -86,7 +92,12 @@ describe("signed cookies", () => {
   it("round-trips and rejects tampering or expiry", () => {
     const value = sign({ state: "abc" }, secret, 60_000);
     expect(verify<{ state: string }>(value, secret)?.state).toBe("abc");
-    expect(verify(value.replace(/.$/, (c) => (c === "A" ? "B" : "A")), secret)).toBeNull();
+    expect(
+      verify(
+        value.replace(/.$/, (c) => (c === "A" ? "B" : "A")),
+        secret,
+      ),
+    ).toBeNull();
     expect(verify(value, "t".repeat(32))).toBeNull();
     expect(verify(sign({ a: 1 }, secret, -1), secret)).toBeNull();
     expect(verify(undefined, secret)).toBeNull();

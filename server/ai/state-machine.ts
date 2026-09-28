@@ -44,7 +44,15 @@ export interface TurnPlan {
 export type PlanResult = { ok: true; plan: TurnPlan } | { ok: false; reason: "completed" | "session_finished" | "turn_limit" };
 
 export function planTurn(state: TutorState, maxTurns: number, totalQuestions = PRACTICE_QUESTIONS): PlanResult {
-  const base = { from: state.stage, currentQuestion: null, nextQuestion: null, totalQuestions, allowHint: false, allowNotReady: false, forcedSummary: false };
+  const base = {
+    from: state.stage,
+    currentQuestion: null,
+    nextQuestion: null,
+    totalQuestions,
+    allowHint: false,
+    allowNotReady: false,
+    forcedSummary: false,
+  };
 
   if (state.stage === "COMPLETED") return { ok: false, reason: "completed" };
   if (state.messageCount >= maxTurns) return { ok: false, reason: "turn_limit" };

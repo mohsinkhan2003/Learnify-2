@@ -81,7 +81,10 @@ describe("audio transcription", () => {
 
   it("transcribes a valid recording (mock) and never trusts the declared type", async () => {
     const student = (await signUp("student")).c;
-    const ok = await student.raw.post("/api/student/transcriptions").set("Origin", ORIGIN).attach("audio", webm, { filename: "../../etc/passwd", contentType: "audio/webm" });
+    const ok = await student.raw
+      .post("/api/student/transcriptions")
+      .set("Origin", ORIGIN)
+      .attach("audio", webm, { filename: "../../etc/passwd", contentType: "audio/webm" });
     expect(ok.status).toBe(200);
     expect(ok.body.text).toBeTruthy();
 
@@ -92,14 +95,20 @@ describe("audio transcription", () => {
     expect(fake.status).toBe(400);
     expect(fake.body.error.code).toBe("UNSUPPORTED_AUDIO");
 
-    const wrongType = await student.raw.post("/api/student/transcriptions").set("Origin", ORIGIN).attach("audio", webm, { filename: "a.exe", contentType: "application/x-msdownload" });
+    const wrongType = await student.raw
+      .post("/api/student/transcriptions")
+      .set("Origin", ORIGIN)
+      .attach("audio", webm, { filename: "a.exe", contentType: "application/x-msdownload" });
     expect(wrongType.status).toBe(400);
   });
 
   it("rejects oversized uploads", async () => {
     const student = (await signUp("student")).c;
     const big = Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(3 * 1024 * 1024 + 10)]);
-    const res = await student.raw.post("/api/student/transcriptions").set("Origin", ORIGIN).attach("audio", big, { filename: "a.webm", contentType: "audio/webm" });
+    const res = await student.raw
+      .post("/api/student/transcriptions")
+      .set("Origin", ORIGIN)
+      .attach("audio", big, { filename: "a.webm", contentType: "audio/webm" });
     expect(res.status).toBe(413);
     expect(res.body.error.code).toBe("AUDIO_TOO_LARGE");
   });

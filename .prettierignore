@@ -1,0 +1,8 @@
+dist
+node_modules
+migrations
+package-lock.json
+client/src/components/ui
+playwright-report
+test-results
+*.md

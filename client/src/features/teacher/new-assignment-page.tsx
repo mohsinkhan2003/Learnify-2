@@ -42,7 +42,17 @@ const draftKey = (userId: string) => `learnify-assignment-draft:${userId}`;
 function emptyDraft(subject: string): Draft {
   const later = new Date(Date.now() + 60 * 60 * 1000);
   later.setMinutes(0, 0, 0);
-  return { topic: "", subject, grade: "", audience: "school", studentIds: [], instructions: "", releaseMode: "now", releaseAt: toLocalInputValue(later), dueAt: "" };
+  return {
+    topic: "",
+    subject,
+    grade: "",
+    audience: "school",
+    studentIds: [],
+    instructions: "",
+    releaseMode: "now",
+    releaseAt: toLocalInputValue(later),
+    dueAt: "",
+  };
 }
 
 function validate(step: number, d: Draft): Record<string, string> {
@@ -57,7 +67,8 @@ function validate(step: number, d: Draft): Record<string, string> {
   if (step === 3) {
     const release = d.releaseMode === "now" ? new Date() : new Date(d.releaseAt);
     if (d.releaseMode === "later" && (!d.releaseAt || Number.isNaN(release.getTime()))) e.releaseAt = "Choose a release date and time";
-    else if (d.releaseMode === "later" && release.getTime() < Date.now() - 60_000) e.releaseAt = "Choose a time in the future, or release now";
+    else if (d.releaseMode === "later" && release.getTime() < Date.now() - 60_000)
+      e.releaseAt = "Choose a time in the future, or release now";
     if (d.dueAt && new Date(d.dueAt) <= release) e.dueAt = "The due date must be after the release time";
   }
   return e;
@@ -65,7 +76,10 @@ function validate(step: number, d: Draft): Record<string, string> {
 
 function StudentPicker({ draft, update, error }: { draft: Draft; update: (p: Partial<Draft>) => void; error?: string }) {
   const { user } = useAuth();
-  const roster = useQuery<{ id: string; name: string; email: string }[]>({ queryKey: queryKeys.roster, enabled: draft.audience === "selected" });
+  const roster = useQuery<{ id: string; name: string; email: string }[]>({
+    queryKey: queryKeys.roster,
+    enabled: draft.audience === "selected",
+  });
   const [search, setSearch] = useState("");
   const filtered = (roster.data ?? []).filter((s) => s.name.toLowerCase().includes(search.toLowerCase()));
   const selected = new Set(draft.studentIds);
@@ -92,7 +106,12 @@ function StudentPicker({ draft, update, error }: { draft: Draft; update: (p: Par
   return (
     <div className="space-y-5">
       <div role="radiogroup" aria-label="Who should do this assignment" className="grid gap-3 sm:grid-cols-2">
-        <Option value="school" icon={Users} title="Everyone at my school" body={`All students at ${user?.school ?? "your school"}, including ones who join later.`} />
+        <Option
+          value="school"
+          icon={Users}
+          title="Everyone at my school"
+          body={`All students at ${user?.school ?? "your school"}, including ones who join later.`}
+        />
         <Option value="selected" icon={UserCheck} title="Choose students" body="Only the students you pick will see it." />
       </div>
       {draft.audience === "selected" && (
@@ -100,7 +119,14 @@ function StudentPicker({ draft, update, error }: { draft: Draft; update: (p: Par
           <div className="flex items-center gap-3 border-b p-3">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-              <Input type="search" aria-label="Search students" placeholder="Search students" className="h-10 pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input
+                type="search"
+                aria-label="Search students"
+                placeholder="Search students"
+                className="h-10 pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
             <span className="shrink-0 text-sm text-muted-foreground" aria-live="polite">
               {draft.studentIds.length} selected
@@ -114,7 +140,9 @@ function StudentPicker({ draft, update, error }: { draft: Draft; update: (p: Par
                 <label className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-muted">
                   <Checkbox
                     checked={selected.has(s.id)}
-                    onCheckedChange={(c) => update({ studentIds: c ? [...draft.studentIds, s.id] : draft.studentIds.filter((id) => id !== s.id) })}
+                    onCheckedChange={(c) =>
+                      update({ studentIds: c ? [...draft.studentIds, s.id] : draft.studentIds.filter((id) => id !== s.id) })
+                    }
                   />
                   <span className="text-sm">
                     <span className="font-medium">{s.name}</span> <span className="text-muted-foreground">{s.email}</span>
@@ -188,7 +216,11 @@ export default function NewAssignmentPage() {
   );
 
   const create = useMutation({
-    mutationFn: () => apiPost<AssignmentDto>("/api/teacher/assignments", { ...payload, releaseAt: draft.releaseMode === "now" ? new Date().toISOString() : payload.releaseAt }),
+    mutationFn: () =>
+      apiPost<AssignmentDto>("/api/teacher/assignments", {
+        ...payload,
+        releaseAt: draft.releaseMode === "now" ? new Date().toISOString() : payload.releaseAt,
+      }),
     onSuccess: (a) => {
       try {
         localStorage.removeItem(key);
@@ -197,7 +229,10 @@ export default function NewAssignmentPage() {
       }
       queryClient.invalidateQueries({ queryKey: ["/api/teacher/assignments"] });
       queryClient.invalidateQueries({ queryKey: queryKeys.teacherOverview });
-      toast({ title: a.status === "scheduled" ? "Assignment scheduled" : "Assignment published", description: a.status === "scheduled" ? `Students will see it ${formatDate(a.releaseAt)}.` : "Students can start now." });
+      toast({
+        title: a.status === "scheduled" ? "Assignment scheduled" : "Assignment published",
+        description: a.status === "scheduled" ? `Students will see it ${formatDate(a.releaseAt)}.` : "Students can start now.",
+      });
       navigate(`/teacher/assignments/${a.id}`, { replace: true });
     },
     onError: (e) => {
@@ -221,7 +256,13 @@ export default function NewAssignmentPage() {
         <Link href="/teacher/assignments" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-4" aria-hidden /> Assignments
         </Link>
-        <PageHeader className="mt-3" title="New assignment" description={dirty ? "Your draft is saved automatically on this device." : "Set up homework for the AI tutor to guide students through."} />
+        <PageHeader
+          className="mt-3"
+          title="New assignment"
+          description={
+            dirty ? "Your draft is saved automatically on this device." : "Set up homework for the AI tutor to guide students through."
+          }
+        />
       </div>
 
       <nav aria-label="Progress">
@@ -261,15 +302,38 @@ export default function NewAssignmentPage() {
         {step === 0 && (
           <div className="space-y-5">
             <h2 className="text-section-title">What's the homework about?</h2>
-            <FormField id="topic" label="Topic" error={errors.topic} hint="Be specific — e.g. “Photosynthesis: the light-dependent reactions”.">
-              <Input {...fieldProps("topic", errors.topic, "x")} autoFocus maxLength={200} value={draft.topic} onChange={(e) => update({ topic: e.target.value })} />
+            <FormField
+              id="topic"
+              label="Topic"
+              error={errors.topic}
+              hint="Be specific — e.g. “Photosynthesis: the light-dependent reactions”."
+            >
+              <Input
+                {...fieldProps("topic", errors.topic, "x")}
+                autoFocus
+                maxLength={200}
+                value={draft.topic}
+                onChange={(e) => update({ topic: e.target.value })}
+              />
             </FormField>
             <div className="grid gap-5 sm:grid-cols-2">
               <FormField id="subject" label="Subject" error={errors.subject}>
-                <Input {...fieldProps("subject", errors.subject)} maxLength={100} value={draft.subject} onChange={(e) => update({ subject: e.target.value })} />
+                <Input
+                  {...fieldProps("subject", errors.subject)}
+                  maxLength={100}
+                  value={draft.subject}
+                  onChange={(e) => update({ subject: e.target.value })}
+                />
               </FormField>
               <FormField id="grade" label="Year / grade" error={errors.grade}>
-                <Input {...fieldProps("grade", errors.grade)} list="grade-options" maxLength={50} placeholder="e.g. Year 10" value={draft.grade} onChange={(e) => update({ grade: e.target.value })} />
+                <Input
+                  {...fieldProps("grade", errors.grade)}
+                  list="grade-options"
+                  maxLength={50}
+                  placeholder="e.g. Year 10"
+                  value={draft.grade}
+                  onChange={(e) => update({ grade: e.target.value })}
+                />
                 <datalist id="grade-options">
                   {GRADES.map((g) => (
                     <option key={g} value={g} />
@@ -292,11 +356,23 @@ export default function NewAssignmentPage() {
             <div>
               <h2 className="text-section-title">Guide the tutor (optional)</h2>
               <p className="mt-1 text-helper">
-                Tell the tutor what to focus on, the level to pitch at, or examples to use. It always keeps its safety rules and the question-by-question structure.
+                Tell the tutor what to focus on, the level to pitch at, or examples to use. It always keeps its safety rules and the
+                question-by-question structure.
               </p>
             </div>
-            <FormField id="instructions" label="Guidance for the tutor" error={errors.instructions} hint={`${draft.instructions.length} / 2000`}>
-              <Textarea {...fieldProps("instructions", errors.instructions, "x")} rows={6} maxLength={2000} value={draft.instructions} onChange={(e) => update({ instructions: e.target.value })} />
+            <FormField
+              id="instructions"
+              label="Guidance for the tutor"
+              error={errors.instructions}
+              hint={`${draft.instructions.length} / 2000`}
+            >
+              <Textarea
+                {...fieldProps("instructions", errors.instructions, "x")}
+                rows={6}
+                maxLength={2000}
+                value={draft.instructions}
+                onChange={(e) => update({ instructions: e.target.value })}
+              />
             </FormField>
             <div>
               <p className="mb-2 text-label">Ideas</p>
@@ -327,20 +403,42 @@ export default function NewAssignmentPage() {
                   role="radio"
                   aria-checked={draft.releaseMode === mode}
                   onClick={() => update({ releaseMode: mode })}
-                  className={cn("rounded-lg border bg-card p-4 text-left transition-all hover:border-primary/40", draft.releaseMode === mode && "border-primary ring-4 ring-primary/10")}
+                  className={cn(
+                    "rounded-lg border bg-card p-4 text-left transition-all hover:border-primary/40",
+                    draft.releaseMode === mode && "border-primary ring-4 ring-primary/10",
+                  )}
                 >
                   <span className="block text-card-title">{mode === "now" ? "Release now" : "Schedule for later"}</span>
-                  <span className="block text-helper">{mode === "now" ? "Students can start straight away and get notified." : "Students see it and get notified at the time you choose."}</span>
+                  <span className="block text-helper">
+                    {mode === "now"
+                      ? "Students can start straight away and get notified."
+                      : "Students see it and get notified at the time you choose."}
+                  </span>
                 </button>
               ))}
             </div>
             {draft.releaseMode === "later" && (
-              <FormField id="releaseAt" label="Release at" error={errors.releaseAt} hint={`Your time zone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`}>
-                <Input {...fieldProps("releaseAt", errors.releaseAt, "x")} type="datetime-local" value={draft.releaseAt} onChange={(e) => update({ releaseAt: e.target.value })} />
+              <FormField
+                id="releaseAt"
+                label="Release at"
+                error={errors.releaseAt}
+                hint={`Your time zone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`}
+              >
+                <Input
+                  {...fieldProps("releaseAt", errors.releaseAt, "x")}
+                  type="datetime-local"
+                  value={draft.releaseAt}
+                  onChange={(e) => update({ releaseAt: e.target.value })}
+                />
               </FormField>
             )}
             <FormField id="dueAt" label="Due (optional)" error={errors.dueAt} hint="Shown to students to help them plan.">
-              <Input {...fieldProps("dueAt", errors.dueAt, "x")} type="datetime-local" value={draft.dueAt} onChange={(e) => update({ dueAt: e.target.value })} />
+              <Input
+                {...fieldProps("dueAt", errors.dueAt, "x")}
+                type="datetime-local"
+                value={draft.dueAt}
+                onChange={(e) => update({ dueAt: e.target.value })}
+              />
             </FormField>
           </div>
         )}
@@ -351,7 +449,11 @@ export default function NewAssignmentPage() {
             <dl className="divide-y rounded-lg border">
               {[
                 { label: "Topic", value: `${draft.topic} · ${draft.subject} · ${draft.grade}`, step: 0 },
-                { label: "Students", value: draft.audience === "school" ? `Everyone at ${user?.school}` : `${draft.studentIds.length} selected students`, step: 1 },
+                {
+                  label: "Students",
+                  value: draft.audience === "school" ? `Everyone at ${user?.school}` : `${draft.studentIds.length} selected students`,
+                  step: 1,
+                },
                 { label: "Tutor guidance", value: draft.instructions || "Default approach", step: 2 },
                 {
                   label: "Schedule",
@@ -364,7 +466,13 @@ export default function NewAssignmentPage() {
                     <dt className="text-label text-muted-foreground">{row.label}</dt>
                     <dd className="mt-0.5 whitespace-pre-wrap break-words text-body">{row.value}</dd>
                   </div>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setStep(row.step)} aria-label={`Edit ${row.label.toLowerCase()}`}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setStep(row.step)}
+                    aria-label={`Edit ${row.label.toLowerCase()}`}
+                  >
                     <Pencil aria-hidden /> Edit
                   </Button>
                 </div>

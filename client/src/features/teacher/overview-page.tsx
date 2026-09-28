@@ -21,16 +21,27 @@ function Onboarding({ onDismiss }: { onDismiss: () => void }) {
     { title: "Review progress", body: "See completion, time spent and who may need help." },
   ];
   return (
-    <section aria-labelledby="onboarding-title" className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-primary-soft via-card to-accent p-6 shadow-sm">
-      <button onClick={onDismiss} className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground hover:bg-card/70" aria-label="Dismiss getting started guide">
+    <section
+      aria-labelledby="onboarding-title"
+      className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-primary-soft via-card to-accent p-6 shadow-sm"
+    >
+      <button
+        onClick={onDismiss}
+        className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground hover:bg-card/70"
+        aria-label="Dismiss getting started guide"
+      >
         <X className="size-4" />
       </button>
       <p className="text-eyebrow">Getting started</p>
-      <h2 id="onboarding-title" className="mt-1 text-section-title">How Learnify works</h2>
+      <h2 id="onboarding-title" className="mt-1 text-section-title">
+        How Learnify works
+      </h2>
       <ol className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {steps.map((s, i) => (
           <li key={s.title} className="flex gap-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-card text-sm font-semibold text-primary shadow-xs">{i + 1}</span>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-card text-sm font-semibold text-primary shadow-xs">
+              {i + 1}
+            </span>
             <div>
               <p className="text-label">{s.title}</p>
               <p className="text-helper">{s.body}</p>
@@ -107,8 +118,18 @@ export default function TeacherOverviewPage() {
               hint={data.metrics.scheduledAssignments ? `${data.metrics.scheduledAssignments} scheduled` : "Released to students"}
               icon={<BookOpenCheck />}
             />
-            <StatTile label="Students participating" value={data.metrics.studentsParticipating} hint="Started at least one assignment" icon={<Users />} />
-            <StatTile label="Completion rate" value={formatPercent(data.metrics.completionRate)} hint="Completed ÷ assigned, active work" icon={<CheckCircle2 />} />
+            <StatTile
+              label="Students participating"
+              value={data.metrics.studentsParticipating}
+              hint="Started at least one assignment"
+              icon={<Users />}
+            />
+            <StatTile
+              label="Completion rate"
+              value={formatPercent(data.metrics.completionRate)}
+              hint="Completed ÷ assigned, active work"
+              icon={<CheckCircle2 />}
+            />
             <StatTile
               label="May need attention"
               value={data.metrics.needsAttention}

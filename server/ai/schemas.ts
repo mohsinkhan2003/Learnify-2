@@ -31,7 +31,8 @@ export const tutorOutputJsonSchema = {
       next_step: {
         type: "string",
         enum: [...NEXT_STEPS],
-        description: "advance = move on as instructed; hint = gave a hint and re-asked the same question; wait_for_readiness = student is not ready yet",
+        description:
+          "advance = move on as instructed; hint = gave a hint and re-asked the same question; wait_for_readiness = student is not ready yet",
       },
       assessment: {
         type: "string",

@@ -84,7 +84,11 @@ class OpenAiProvider implements AiProvider {
       language: "en",
       response_format: "verbose_json",
     })) as unknown as { text: string; duration?: number };
-    return { text: result.text ?? "", durationSeconds: typeof result.duration === "number" ? result.duration : null, model: config.ai.transcribeModel };
+    return {
+      text: result.text ?? "",
+      durationSeconds: typeof result.duration === "number" ? result.duration : null,
+      model: config.ai.transcribeModel,
+    };
   }
 }
 
@@ -99,7 +103,11 @@ export class MockAiProvider implements AiProvider {
 
   async generateTurn(messages: ChatTurnMessage[]): Promise<ChatTurnResult> {
     const directive = messages[messages.length - 1]?.content ?? "";
-    const student = [...messages].reverse().find((m) => m.role === "user")?.content.toLowerCase() ?? "";
+    const student =
+      [...messages]
+        .reverse()
+        .find((m) => m.role === "user")
+        ?.content.toLowerCase() ?? "";
     const reply = (message: string, next_step = "advance", assessment = "not_applicable") =>
       JSON.stringify({ message, next_step, assessment, misconception: null, safety_concern: false });
 
@@ -107,20 +115,32 @@ export class MockAiProvider implements AiProvider {
     let raw: string;
     if (student.includes("__malformed__")) raw = "this is not json";
     else if (student.includes("__leak__")) raw = reply(`Sure, my reference is ${LEAK_CANARY}`);
-    else if (directive.includes("replied to your greeting")) raw = reply("Nice to hear from you! Today we're exploring this topic. Are you ready to begin?");
+    else if (directive.includes("replied to your greeting"))
+      raw = reply("Nice to hear from you! Today we're exploring this topic. Are you ready to begin?");
     else if (directive.includes("whether they are ready")) {
-      raw = /not ready|^no\b/.test(student) && directive.includes("wait_for_readiness")
-        ? reply("That's okay, take your time. Let me know when you're ready.", "wait_for_readiness")
-        : reply("Great! What do you already know about this topic?");
+      raw =
+        /not ready|^no\b/.test(student) && directive.includes("wait_for_readiness")
+          ? reply("That's okay, take your time. Let me know when you're ready.", "wait_for_readiness")
+          : reply("Great! What do you already know about this topic?");
     } else if (directive.includes("summarise")) {
-      raw = /don't know|hint/.test(student) && directive.includes('"hint"')
-        ? reply("Here's a hint: think about causes and effects. Try again?", "hint", "incorrect")
-        : reply("Well reasoned. Here's a summary of what we covered: the key ideas, a real-world link, and your strong reasoning. You can now press Complete.", "advance", "correct");
+      raw =
+        /don't know|hint/.test(student) && directive.includes('"hint"')
+          ? reply("Here's a hint: think about causes and effects. Try again?", "hint", "incorrect")
+          : reply(
+              "Well reasoned. Here's a summary of what we covered: the key ideas, a real-world link, and your strong reasoning. You can now press Complete.",
+              "advance",
+              "correct",
+            );
     } else if (directive.includes("guided-practice")) {
       const n = /ask (?:guided-practice )?question (\d+)/.exec(directive)?.[1] ?? "1";
-      raw = /don't know|hint/.test(student) && directive.includes('"hint"')
-        ? reply("Here's a hint: think about how the parts connect. Want to try again?", "hint", "incorrect")
-        : reply(`Good thinking. Question ${n}: how would you explain why this happens?`, "advance", /wrong/.test(student) ? "incorrect" : "correct");
+      raw =
+        /don't know|hint/.test(student) && directive.includes('"hint"')
+          ? reply("Here's a hint: think about how the parts connect. Want to try again?", "hint", "incorrect")
+          : reply(
+              `Good thinking. Question ${n}: how would you explain why this happens?`,
+              "advance",
+              /wrong/.test(student) ? "incorrect" : "correct",
+            );
     } else raw = reply("Good question! Remember you can press Complete when you're ready.");
 
     return { raw, model: "mock-tutor", promptTokens: 100, completionTokens: 30 };
@@ -132,7 +152,11 @@ export class MockAiProvider implements AiProvider {
   }
 
   async transcribe(audio: Buffer): Promise<TranscriptionOutput> {
-    return { text: "This is a mock transcription.", durationSeconds: Math.max(1, Math.round(audio.length / 16000)), model: "mock-transcribe" };
+    return {
+      text: "This is a mock transcription.",
+      durationSeconds: Math.max(1, Math.round(audio.length / 16000)),
+      model: "mock-transcribe",
+    };
   }
 }
 

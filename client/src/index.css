@@ -186,8 +186,7 @@
   .app-backdrop {
     background:
       radial-gradient(60rem 40rem at 110% -10%, hsl(var(--accent-strong) / 0.1), transparent 60%),
-      radial-gradient(50rem 36rem at -10% -20%, hsl(var(--primary) / 0.1), transparent 60%),
-      hsl(var(--background));
+      radial-gradient(50rem 36rem at -10% -20%, hsl(var(--primary) / 0.1), transparent 60%), hsl(var(--background));
   }
   .interactive-card {
     @apply transition-[box-shadow,transform,border-color] duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[var(--shadow-md)];

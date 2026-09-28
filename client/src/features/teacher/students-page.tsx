@@ -27,10 +27,20 @@ export default function StudentsPage() {
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <PageHeader title="Students" description={`Students at ${user?.school ?? "your school"} and their activity on your current assignments.`} />
+      <PageHeader
+        title="Students"
+        description={`Students at ${user?.school ?? "your school"} and their activity on your current assignments.`}
+      />
       <div className="relative max-w-sm">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-        <Input type="search" placeholder="Search by name" aria-label="Search students" className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <Input
+          type="search"
+          placeholder="Search by name"
+          aria-label="Search students"
+          className="pl-9"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
       {query.error ? (
         <ErrorState error={query.error} onRetry={() => query.refetch()} />
@@ -40,7 +50,9 @@ export default function StudentsPage() {
         <EmptyState
           icon={<Users />}
           title={deferred ? "No students match your search" : "No students yet"}
-          description={deferred ? "Try a different name." : `Students appear here when they sign up with the school name "${user?.school}".`}
+          description={
+            deferred ? "Try a different name." : `Students appear here when they sign up with the school name "${user?.school}".`
+          }
         />
       ) : (
         <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
@@ -68,7 +80,11 @@ export default function StudentsPage() {
                     <TableCell className="tabular text-right">{formatDuration(s.totalTimeSeconds)}</TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{formatRelative(s.lastActiveAt)}</TableCell>
                     <TableCell>
-                      {s.insightCount > 0 ? <Badge variant="warning">{s.insightCount} to review</Badge> : <span className="text-helper">—</span>}
+                      {s.insightCount > 0 ? (
+                        <Badge variant="warning">{s.insightCount} to review</Badge>
+                      ) : (
+                        <span className="text-helper">—</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

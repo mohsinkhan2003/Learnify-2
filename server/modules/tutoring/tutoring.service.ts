@@ -41,7 +41,12 @@ async function startSession(student: User, assignment: Assignment): Promise<void
 const refusal = {
   completed: () => conflict("You've already completed this assignment.", "ASSIGNMENT_COMPLETED"),
   session_finished: () => conflict("You've finished this session — press Complete to hand it in.", "SESSION_FINISHED"),
-  turn_limit: () => new AppError(429, "TURN_LIMIT", "You've reached the message limit for this assignment. Please press Complete or ask your teacher for help."),
+  turn_limit: () =>
+    new AppError(
+      429,
+      "TURN_LIMIT",
+      "You've reached the message limit for this assignment. Please press Complete or ask your teacher for help.",
+    ),
 };
 
 export const tutoringService = {

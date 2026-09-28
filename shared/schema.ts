@@ -1,16 +1,5 @@
 import { sql } from "drizzle-orm";
-import {
-  pgTable,
-  text,
-  varchar,
-  timestamp,
-  uuid,
-  integer,
-  boolean,
-  uniqueIndex,
-  index,
-  primaryKey,
-} from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, uuid, integer, boolean, uniqueIndex, index, primaryKey } from "drizzle-orm/pg-core";
 
 // All timestamps are stored as timestamptz (UTC instants) and converted to the
 // viewer's local time zone only for display.
@@ -123,7 +112,9 @@ export type InsertAssignment = typeof assignments.$inferInsert;
 export const chatMessages = pgTable(
   "chat_messages",
   {
-    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     // varchar (not uuid/FK) for compatibility with rows created by the demo, which may reference
     // deleted assignments. Access is always checked through the assignment first.
     assignmentId: varchar("assignment_id").notNull(),
@@ -218,7 +209,9 @@ export const aiUsage = pgTable(
 // ---------------------------------------------------------------------------
 
 export const pushSubscriptions = pgTable("push_subscriptions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   endpoint: text("endpoint").notNull().unique(),
   p256dhKey: text("p256dh_key").notNull(),
   authKey: text("auth_key").notNull(),

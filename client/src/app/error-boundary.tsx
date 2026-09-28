@@ -25,7 +25,9 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
           </div>
           <h1 className="text-section-title">{chunkError ? "Learnify has been updated" : "Something went wrong"}</h1>
           <p className="mt-2 text-body text-muted-foreground">
-            {chunkError ? "Please reload to get the latest version." : "Sorry about that. Reloading usually fixes it — your work is saved on our servers."}
+            {chunkError
+              ? "Please reload to get the latest version."
+              : "Sorry about that. Reloading usually fixes it — your work is saved on our servers."}
           </p>
           <button
             onClick={() => window.location.reload()}

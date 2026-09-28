@@ -1,6 +1,13 @@
 node_modules
 dist
 .git
+.github
 .env
 .env.*
+!.env.example
+docs
+e2e
+tests
+test-results
+playwright-report
 *.md

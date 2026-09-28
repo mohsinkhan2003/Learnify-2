@@ -17,9 +17,17 @@ import { audioSecondsLast24h, recordUsage } from "../../ai/usage";
 const FORMATS: { mime: string; ext: string; sniff: (b: Buffer) => boolean }[] = [
   { mime: "audio/webm", ext: "webm", sniff: (b) => b.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3])) },
   { mime: "audio/ogg", ext: "ogg", sniff: (b) => b.subarray(0, 4).toString("latin1") === "OggS" },
-  { mime: "audio/wav", ext: "wav", sniff: (b) => b.subarray(0, 4).toString("latin1") === "RIFF" && b.subarray(8, 12).toString("latin1") === "WAVE" },
+  {
+    mime: "audio/wav",
+    ext: "wav",
+    sniff: (b) => b.subarray(0, 4).toString("latin1") === "RIFF" && b.subarray(8, 12).toString("latin1") === "WAVE",
+  },
   { mime: "audio/mp4", ext: "m4a", sniff: (b) => b.subarray(4, 8).toString("latin1") === "ftyp" },
-  { mime: "audio/mpeg", ext: "mp3", sniff: (b) => b.subarray(0, 3).toString("latin1") === "ID3" || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0) },
+  {
+    mime: "audio/mpeg",
+    ext: "mp3",
+    sniff: (b) => b.subarray(0, 3).toString("latin1") === "ID3" || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0),
+  },
 ];
 
 const ALLOWED_DECLARED = /^(audio\/(webm|ogg|wav|x-wav|wave|mp4|x-m4a|m4a|aac|mpeg|mp3)|video\/webm)(;.*)?$/i;

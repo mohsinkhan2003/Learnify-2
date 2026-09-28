@@ -2,7 +2,26 @@
 
 export type VoicePreference = "female" | "male";
 
-const FEMALE = ["female", "woman", "samantha", "victoria", "karen", "zira", "susan", "serena", "tessa", "moira", "fiona", "kate", "libby", "sonia", "aria", "jenny", "google uk english female", "google us english"];
+const FEMALE = [
+  "female",
+  "woman",
+  "samantha",
+  "victoria",
+  "karen",
+  "zira",
+  "susan",
+  "serena",
+  "tessa",
+  "moira",
+  "fiona",
+  "kate",
+  "libby",
+  "sonia",
+  "aria",
+  "jenny",
+  "google uk english female",
+  "google us english",
+];
 const MALE = ["male", "daniel", "david", "mark", "thomas", "alex", "oliver", "fred", "ryan", "guy", "google uk english male"];
 
 export const speechSynthesisSupported = () => typeof window !== "undefined" && "speechSynthesis" in window;

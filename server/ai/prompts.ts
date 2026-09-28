@@ -19,7 +19,7 @@ const FENCE_TAGS = /<\/?\s*(assignment|teacher_guidance|system|instructions?)\b[
 
 /** Neutralises attempts to close our data fences and trims to a sane length. */
 export function sanitizeUntrusted(text: string, maxLength: number): string {
-  return text.replace(FENCE_TAGS, "").replace(/\u0000/g, "").trim().slice(0, maxLength);
+  return text.replace(FENCE_TAGS, "").split(String.fromCharCode(0)).join("").trim().slice(0, maxLength);
 }
 
 export function buildSystemPrompt(assignment: Assignment): string {
@@ -91,17 +91,14 @@ export function buildTurnDirective(plan: TurnPlan): string {
       } Otherwise give brief specific feedback and ask ${q(plan.nextQuestion)}, which should be a different kind of analytical question (compare, explain why, apply to a real-world example, predict, evaluate), with next_step "advance".`;
     case "summary":
       return `TURN: The student answered ${plan.forcedSummary ? "a" : "the final"} guided-practice question.${
-        plan.allowHint
-          ? ` If it shows a real misunderstanding, give a hint and re-ask it with next_step "hint".`
-          : ""
+        plan.allowHint ? ` If it shows a real misunderstanding, give a hint and re-ask it with next_step "hint".` : ""
       } Otherwise give brief feedback, then say "Here's a summary of what we covered:" and summarise in 3-4 sentences the key ideas, one real-world connection, and one thing the student did well, then tell them they can now press Complete. next_step: "advance".`;
     case "review":
       return `TURN: The session is finished and the summary has been given. Answer the student's follow-up briefly and accurately, staying on topic, and remind them they can press Complete when ready. next_step: "advance". assessment: "not_applicable".`;
   }
 }
 
-export const RETRY_DIRECTIVE =
-  "Your previous reply was not valid. Respond again with ONLY a JSON object that exactly matches the schema.";
+export const RETRY_DIRECTIVE = "Your previous reply was not valid. Respond again with ONLY a JSON object that exactly matches the schema.";
 
 export function greetingMessage(studentName: string): string {
   const first = studentName.trim().split(/\s+/)[0] || "there";

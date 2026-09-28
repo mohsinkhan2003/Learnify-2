@@ -54,7 +54,11 @@ export default function AssignmentsPage() {
         </div>
       ) : items.length === 0 ? (
         archived ? (
-          <EmptyState icon={<Archive />} title="No archived assignments" description="Archived assignments are hidden from students but keep all their progress data." />
+          <EmptyState
+            icon={<Archive />}
+            title="No archived assignments"
+            description="Archived assignments are hidden from students but keep all their progress data."
+          />
         ) : (
           <EmptyState
             icon={<ClipboardList />}

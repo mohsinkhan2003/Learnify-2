@@ -7,15 +7,7 @@ export const logger = pino({
   level: config.logLevel,
   base: { service: "learnify" },
   redact: {
-    paths: [
-      "req.headers.cookie",
-      "req.headers.authorization",
-      'res.headers["set-cookie"]',
-      "password",
-      "*.password",
-      "token",
-      "*.token",
-    ],
+    paths: ["req.headers.cookie", "req.headers.authorization", 'res.headers["set-cookie"]', "password", "*.password", "token", "*.token"],
     censor: "[redacted]",
   },
   transport:

@@ -30,13 +30,18 @@ export function initPush(): void {
 }
 
 export const isPushEnabled = () => enabled;
-export const vapidPublicKey = () => (enabled ? config.vapid.publicKey ?? null : null);
+export const vapidPublicKey = () => (enabled ? (config.vapid.publicKey ?? null) : null);
 
 /**
  * Browsers only issue endpoints on their vendor push services. Restricting to these hosts stops
  * the subscription API from being used to make the server send requests to arbitrary URLs (SSRF).
  */
-const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^updates\.push\.services\.mozilla\.com$/, /(^|\.)push\.apple\.com$/, /(^|\.)notify\.windows\.com$/];
+const PUSH_HOSTS = [
+  /^fcm\.googleapis\.com$/,
+  /^updates\.push\.services\.mozilla\.com$/,
+  /(^|\.)push\.apple\.com$/,
+  /(^|\.)notify\.windows\.com$/,
+];
 
 export function isAllowedPushEndpoint(endpoint: string): boolean {
   try {
@@ -80,7 +85,10 @@ async function subscriptionsFor(assignment: Assignment): Promise<PushSubscriptio
       ? await base.where(
           inArray(
             users.id,
-            db.select({ id: assignmentStudents.studentId }).from(assignmentStudents).where(eq(assignmentStudents.assignmentId, assignment.id)),
+            db
+              .select({ id: assignmentStudents.studentId })
+              .from(assignmentStudents)
+              .where(eq(assignmentStudents.assignmentId, assignment.id)),
           ),
         )
       : assignment.teacherSchool

@@ -77,11 +77,9 @@ async function statsFor(teacher: User, list: Assignment[], now = new Date()) {
 
   return list.map((assignment) => {
     const raw = byAssignment.get(assignment.id) ?? [];
-    const threshold = longSessionThreshold(
-      raw.filter((r) => r.progress.status !== "not_started").map((r) => r.progress.totalTimeSpent),
-    );
+    const threshold = longSessionThreshold(raw.filter((r) => r.progress.status !== "not_started").map((r) => r.progress.totalTimeSpent));
     const rows = raw.map((r) => toProgressRow(r, threshold, now));
-    const eligible = assignment.audience === "selected" ? recipientCounts.get(assignment.id) ?? 0 : schoolCount;
+    const eligible = assignment.audience === "selected" ? (recipientCounts.get(assignment.id) ?? 0) : schoolCount;
     return { assignment, rows, stats: buildAssignmentStats(rows, eligible) };
   });
 }

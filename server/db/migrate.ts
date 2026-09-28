@@ -39,10 +39,7 @@ export async function runMigrations(pool: pg.Pool, migrationsFolder: string, log
     if (applied.rows[0].n === 0 && hasUsersTable.rows[0].exists && baseline) {
       const sqlText = fs.readFileSync(path.join(migrationsFolder, `${baseline.tag}.sql`), "utf8");
       const hash = crypto.createHash("sha256").update(sqlText).digest("hex");
-      await client.query(`INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ($1, $2)`, [
-        hash,
-        baseline.when,
-      ]);
+      await client.query(`INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ($1, $2)`, [hash, baseline.when]);
       log(`Existing schema detected: baselined migration ${baseline.tag}`);
     }
 

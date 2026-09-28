@@ -27,8 +27,14 @@ export const createAssignmentSchema = z
     audience: z.enum(["school", "selected"]).default("school"),
     studentIds: z.array(z.string().uuid()).max(500, "Select at most 500 students").optional(),
   })
-  .refine((d) => new Date(d.releaseAt).getTime() < Date.now() + YEAR, { path: ["releaseAt"], message: "Release time must be within a year" })
-  .refine((d) => d.audience !== "selected" || (d.studentIds?.length ?? 0) > 0, { path: ["studentIds"], message: "Select at least one student" })
+  .refine((d) => new Date(d.releaseAt).getTime() < Date.now() + YEAR, {
+    path: ["releaseAt"],
+    message: "Release time must be within a year",
+  })
+  .refine((d) => d.audience !== "selected" || (d.studentIds?.length ?? 0) > 0, {
+    path: ["studentIds"],
+    message: "Select at least one student",
+  })
   .transform((d) => ({
     ...d,
     // A release time in the past means "release now".

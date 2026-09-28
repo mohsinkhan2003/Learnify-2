@@ -59,7 +59,11 @@ export async function runTutorTurn(params: {
   const inputCheck = await moderateSafely(studentMessage, userId);
   if (inputCheck.flagged) {
     log.warn({ selfHarm: inputCheck.selfHarm }, "Student message flagged by moderation");
-    return { kind: "input_flagged", reply: inputCheck.selfHarm ? SAFE_REPLIES.selfHarm : SAFE_REPLIES.flaggedInput, selfHarm: inputCheck.selfHarm };
+    return {
+      kind: "input_flagged",
+      reply: inputCheck.selfHarm ? SAFE_REPLIES.selfHarm : SAFE_REPLIES.flaggedInput,
+      selfHarm: inputCheck.selfHarm,
+    };
   }
 
   const provider = getAiProvider();
@@ -73,7 +77,11 @@ export async function runTutorTurn(params: {
       result = await provider.generateTurn(request);
     } catch (error) {
       log.error({ err: error, attempt }, "Tutor model call failed");
-      throw new AppError(503, "AI_UNAVAILABLE", "The tutor is having trouble responding right now. Your message wasn't sent — please try again.");
+      throw new AppError(
+        503,
+        "AI_UNAVAILABLE",
+        "The tutor is having trouble responding right now. Your message wasn't sent — please try again.",
+      );
     }
     await recordUsage({
       userId,

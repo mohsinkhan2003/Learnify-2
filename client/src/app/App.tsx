@@ -55,7 +55,10 @@ function UpdateBanner() {
   const { updateReady, applyUpdate } = useServiceWorkerUpdate();
   if (!updateReady) return null;
   return (
-    <div role="status" className="glass fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full px-4 py-2 text-sm shadow-lg lg:bottom-6">
+    <div
+      role="status"
+      className="glass fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full px-4 py-2 text-sm shadow-lg lg:bottom-6"
+    >
       A new version of Learnify is ready.
       <Button size="sm" variant="soft" onClick={applyUpdate}>
         <RefreshCw aria-hidden /> Update

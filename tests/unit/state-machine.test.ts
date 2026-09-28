@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { applyTurn, MAX_HINTS_PER_QUESTION, MAX_READINESS_RETRIES, MAX_REVIEW_TURNS, planTurn, type TutorState } from "../../server/ai/state-machine";
+import {
+  applyTurn,
+  MAX_HINTS_PER_QUESTION,
+  MAX_READINESS_RETRIES,
+  MAX_REVIEW_TURNS,
+  planTurn,
+  type TutorState,
+} from "../../server/ai/state-machine";
 import type { TutorOutput } from "../../server/ai/schemas";
 
 const MAX = 40;
@@ -18,7 +25,11 @@ function step(s: TutorState, o: TutorOutput = out()) {
   const p = planTurn(s, MAX, N);
   if (!p.ok) throw new Error(p.reason);
   const r = applyTurn(s, p.plan, o);
-  return { plan: p.plan, r, next: state({ stage: r.stage, stageTurns: r.stageTurns, practiceCompleted: r.practiceCompleted, messageCount: s.messageCount + 1 }) };
+  return {
+    plan: p.plan,
+    r,
+    next: state({ stage: r.stage, stageTurns: r.stageTurns, practiceCompleted: r.practiceCompleted, messageCount: s.messageCount + 1 }),
+  };
 }
 
 describe("tutor state machine", () => {
@@ -81,7 +92,10 @@ describe("tutor state machine", () => {
 
   it("allows bounded review after the summary and refuses after completion", () => {
     expect(planTurn(state({ stage: "READY_TO_COMPLETE", stageTurns: MAX_REVIEW_TURNS - 1 }), MAX, N).ok).toBe(true);
-    expect(planTurn(state({ stage: "READY_TO_COMPLETE", stageTurns: MAX_REVIEW_TURNS }), MAX, N)).toEqual({ ok: false, reason: "session_finished" });
+    expect(planTurn(state({ stage: "READY_TO_COMPLETE", stageTurns: MAX_REVIEW_TURNS }), MAX, N)).toEqual({
+      ok: false,
+      reason: "session_finished",
+    });
     expect(planTurn(state({ stage: "COMPLETED" }), MAX, N)).toEqual({ ok: false, reason: "completed" });
   });
 

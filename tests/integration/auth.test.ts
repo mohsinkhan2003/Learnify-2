@@ -27,15 +27,33 @@ describe("authentication", () => {
     const weak = await c.post("/api/auth/signup", { email: "a@b.co", password: "short", name: "A", role: "student", school: "Oak" });
     expect(weak.status).toBe(400);
     expect(weak.body.error.code).toBe("VALIDATION_ERROR");
-    const noSubject = await c.post("/api/auth/signup", { email: "t@b.co", password: "long enough pw", name: "T", role: "teacher", school: "Oak" });
+    const noSubject = await c.post("/api/auth/signup", {
+      email: "t@b.co",
+      password: "long enough pw",
+      name: "T",
+      role: "teacher",
+      school: "Oak",
+    });
     expect(noSubject.status).toBe(400);
-    const badRole = await c.post("/api/auth/signup", { email: "x@b.co", password: "long enough pw", name: "X", role: "admin", school: "Oak" });
+    const badRole = await c.post("/api/auth/signup", {
+      email: "x@b.co",
+      password: "long enough pw",
+      name: "X",
+      role: "admin",
+      school: "Oak",
+    });
     expect(badRole.status).toBe(400);
   });
 
   it("rejects duplicate emails case-insensitively", async () => {
     const { email } = await signUp("student");
-    const res = await client().post("/api/auth/signup", { email: email.toUpperCase(), password: "long enough pw", name: "Dup", role: "student", school: "Oak High" });
+    const res = await client().post("/api/auth/signup", {
+      email: email.toUpperCase(),
+      password: "long enough pw",
+      name: "Dup",
+      role: "student",
+      school: "Oak High",
+    });
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe("EMAIL_TAKEN");
   });
@@ -77,11 +95,21 @@ describe("authentication", () => {
   });
 
   it("returns a consistent error envelope with a request id and no internals", async () => {
-    const res = await request(getApp()).post("/api/auth/login").set("Origin", ORIGIN).set("Content-Type", "application/json").send("{bad json");
+    const res = await request(getApp())
+      .post("/api/auth/login")
+      .set("Origin", ORIGIN)
+      .set("Content-Type", "application/json")
+      .send("{bad json");
     expect(res.status).toBe(400);
     expect(res.body.error).toMatchObject({ code: "MALFORMED_JSON" });
     expect(res.body.error.requestId).toBeTruthy();
     expect(JSON.stringify(res.body)).not.toMatch(/at \w+ \(|node_modules|SELECT/);
+  });
+
+  it("exposes a non-erroring session probe for the SPA", async () => {
+    expect((await client().get("/api/auth/session")).body).toEqual({ user: null });
+    const { c } = await signUp("student");
+    expect((await c.get("/api/auth/session")).body.user.role).toBe("student");
   });
 
   it("reports providers and hides Google routes when not configured", async () => {

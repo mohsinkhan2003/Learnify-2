@@ -16,7 +16,8 @@ import { speakText, stopSpeaking, speechSynthesisSupported, type VoicePreference
  * The microphone is released between turns, so the tutor's voice is never recorded and the
  * browser's "mic in use" indicator is only on while the student is actually speaking.
  */
-export type VoiceStatus = "idle" | "requesting" | "listening" | "transcribing" | "thinking" | "speaking" | "error" | "denied" | "unsupported";
+export type VoiceStatus =
+  "idle" | "requesting" | "listening" | "transcribing" | "thinking" | "speaking" | "error" | "denied" | "unsupported";
 
 interface Options {
   /** Sends the transcript; resolves with the tutor's reply text, or null if the turn failed. */
@@ -142,7 +143,9 @@ export function useVoice({ onUtterance, transcriptionEnabled, maxSeconds }: Opti
   const openMic = useCallback(
     async (onLevel?: (l: number) => void): Promise<MediaStream | null> => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
         streamRef.current = stream;
         const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         const ctx = new Ctx();
@@ -266,7 +269,11 @@ export function useVoice({ onUtterance, transcriptionEnabled, maxSeconds }: Opti
       } else {
         teardownCapture();
         activeRef.current = false;
-        setHint(event.error === "network" ? "Voice recognition needs an internet connection. You can type instead." : "Voice input stopped unexpectedly. Tap the microphone to try again.");
+        setHint(
+          event.error === "network"
+            ? "Voice recognition needs an internet connection. You can type instead."
+            : "Voice input stopped unexpectedly. Tap the microphone to try again.",
+        );
         setStatus("error");
       }
     };

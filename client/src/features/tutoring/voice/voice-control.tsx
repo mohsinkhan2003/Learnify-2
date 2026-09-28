@@ -38,7 +38,11 @@ function SpeakingBars() {
   return (
     <span className="flex h-7 items-center gap-1" aria-hidden>
       {[0, 150, 300, 150, 0].map((delay, i) => (
-        <span key={i} className="h-full w-1.5 origin-center animate-breathe rounded-full bg-primary-foreground/90 motion-reduce:animate-none" style={{ animationDelay: `${delay}ms`, animationDuration: "0.9s" }} />
+        <span
+          key={i}
+          className="h-full w-1.5 origin-center animate-breathe rounded-full bg-primary-foreground/90 motion-reduce:animate-none"
+          style={{ animationDelay: `${delay}ms`, animationDuration: "0.9s" }}
+        />
       ))}
     </span>
   );
@@ -81,7 +85,13 @@ export function VoiceButton({
       {status === "listening" && (
         <>
           <span className={cn("absolute inset-0 animate-pulse-ring rounded-full bg-primary/40 motion-reduce:hidden", dims)} aria-hidden />
-          <span className={cn("absolute inset-0 animate-pulse-ring rounded-full bg-primary/30 [animation-delay:0.6s] motion-reduce:hidden", dims)} aria-hidden />
+          <span
+            className={cn(
+              "absolute inset-0 animate-pulse-ring rounded-full bg-primary/30 [animation-delay:0.6s] motion-reduce:hidden",
+              dims,
+            )}
+            aria-hidden
+          />
         </>
       )}
       <button
@@ -128,7 +138,9 @@ export function MicDeniedHelp({ onDismiss }: { onDismiss: () => void }) {
       <p className="font-semibold text-warning">Your microphone is blocked</p>
       <ol className="mt-2 list-decimal space-y-1 pl-5 text-foreground/80">
         <li>Click the lock or settings icon next to the web address.</li>
-        <li>Set <strong>Microphone</strong> to <strong>Allow</strong>.</li>
+        <li>
+          Set <strong>Microphone</strong> to <strong>Allow</strong>.
+        </li>
         <li>Reload this page — your conversation is saved.</li>
       </ol>
       <p className="mt-2 text-foreground/80">You can keep going by typing in the box below.</p>

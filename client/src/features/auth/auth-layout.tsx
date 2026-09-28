@@ -3,7 +3,17 @@ import { Link } from "wouter";
 import { Logo } from "@/components/common/logo";
 
 /** Split layout: form on the left, calm brand panel on the right (hidden on small screens). */
-export function AuthLayout({ title, subtitle, children, footer }: { title: string; subtitle: ReactNode; children: ReactNode; footer?: ReactNode }) {
+export function AuthLayout({
+  title,
+  subtitle,
+  children,
+  footer,
+}: {
+  title: string;
+  subtitle: ReactNode;
+  children: ReactNode;
+  footer?: ReactNode;
+}) {
   return (
     <div className="app-backdrop grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
       <div className="flex flex-col px-5 py-6 sm:px-10">
@@ -17,12 +27,17 @@ export function AuthLayout({ title, subtitle, children, footer }: { title: strin
           {footer && <div className="mt-6 text-center text-sm text-muted-foreground">{footer}</div>}
         </main>
       </div>
-      <aside className="relative hidden overflow-hidden border-l bg-gradient-to-br from-primary-soft via-background to-accent lg:flex lg:items-center lg:justify-center" aria-hidden>
+      <aside
+        className="relative hidden overflow-hidden border-l bg-gradient-to-br from-primary-soft via-background to-accent lg:flex lg:items-center lg:justify-center"
+        aria-hidden
+      >
         <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-primary/15 blur-3xl" />
         <div className="absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-accent-strong/15 blur-3xl" />
         <div className="glass relative mx-10 max-w-md rounded-xl p-6 shadow-lg">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent-strong text-sm font-semibold text-white">AI</span>
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent-strong text-sm font-semibold text-white">
+              AI
+            </span>
             <div>
               <p className="text-sm font-semibold">Learnify tutor</p>
               <p className="text-xs text-muted-foreground">Photosynthesis · Year 10</p>
@@ -43,7 +58,19 @@ export function AuthLayout({ title, subtitle, children, footer }: { title: strin
   );
 }
 
-export function FormField({ id, label, error, hint, children }: { id: string; label: string; error?: string; hint?: string; children: ReactNode }) {
+export function FormField({
+  id,
+  label,
+  error,
+  hint,
+  children,
+}: {
+  id: string;
+  label: string;
+  error?: string;
+  hint?: string;
+  children: ReactNode;
+}) {
   return (
     <div className="space-y-1.5">
       <label htmlFor={id} className="text-label">

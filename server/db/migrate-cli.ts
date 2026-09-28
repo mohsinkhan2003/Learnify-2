@@ -2,6 +2,9 @@
 import path from "path";
 import pg from "pg";
 import { runMigrations } from "./migrate";
+import { loadDotEnv } from "../config/dotenv";
+
+loadDotEnv();
 
 async function main() {
   const url = process.env.DATABASE_URL;

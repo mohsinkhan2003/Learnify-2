@@ -62,7 +62,11 @@ export function AssignmentCard({ assignment }: { assignment: TeacherAssignmentLi
         <div className="flex items-center gap-1.5">
           <CalendarClock className="size-3.5" aria-hidden />
           <dt className="sr-only">Released</dt>
-          <dd>{assignment.status === "scheduled" ? `Releases ${formatDate(assignment.releaseAt)}` : `Set ${formatShortDate(assignment.releaseAt)}`}</dd>
+          <dd>
+            {assignment.status === "scheduled"
+              ? `Releases ${formatDate(assignment.releaseAt)}`
+              : `Set ${formatShortDate(assignment.releaseAt)}`}
+          </dd>
         </div>
         {assignment.dueAt && (
           <div className="flex items-center gap-1.5">
@@ -81,16 +85,18 @@ export function AssignmentCard({ assignment }: { assignment: TeacherAssignmentLi
       </dl>
       <div className="mt-auto pt-5">
         <div className="mb-1.5 flex items-center justify-between text-sm">
-          <span className="font-medium">
-            {stats.completed} completed
-          </span>
+          <span className="font-medium">{stats.completed} completed</span>
           {stats.needsAttention > 0 && (
             <span className="inline-flex items-center gap-1 text-warning">
               <AlertTriangle className="size-3.5" aria-hidden /> {stats.needsAttention} may need attention
             </span>
           )}
         </div>
-        <Meter value={stats.completed} max={Math.max(stats.eligible, 1)} label={`${stats.completed} of ${stats.eligible} students completed`} />
+        <Meter
+          value={stats.completed}
+          max={Math.max(stats.eligible, 1)}
+          label={`${stats.completed} of ${stats.eligible} students completed`}
+        />
       </div>
     </Link>
   );

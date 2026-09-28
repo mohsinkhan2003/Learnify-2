@@ -21,7 +21,9 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((names) => Promise.all(names.filter((n) => n.startsWith("learnify-") && n !== SHELL_CACHE && n !== ASSET_CACHE).map((n) => caches.delete(n))))
+      .then((names) =>
+        Promise.all(names.filter((n) => n.startsWith("learnify-") && n !== SHELL_CACHE && n !== ASSET_CACHE).map((n) => caches.delete(n))),
+      )
       .then(() => self.clients.claim()),
   );
 });
@@ -34,7 +36,8 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/") || url.pathname === "/health" || url.pathname === "/ready") return;
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/") || url.pathname === "/health" || url.pathname === "/ready")
+    return;
 
   if (request.mode === "navigate") {
     event.respondWith(

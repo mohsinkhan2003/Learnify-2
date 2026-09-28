@@ -8,7 +8,13 @@ import type { PendingMessage } from "./use-tutor-session";
 
 export function TutorAvatar({ className }: { className?: string }) {
   return (
-    <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent-strong text-white shadow-sm", className)} aria-hidden>
+    <span
+      className={cn(
+        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent-strong text-white shadow-sm",
+        className,
+      )}
+      aria-hidden
+    >
       <Sparkles className="size-4" />
     </span>
   );
@@ -59,7 +65,11 @@ function Message({ m, onReplay }: { m: ChatMessageDto; onReplay?: (text: string)
             </span>
           )}
           {tutor && onReplay && (
-            <button onClick={() => onReplay(m.content)} className="inline-flex items-center gap-1 rounded px-1 opacity-70 hover:text-foreground hover:opacity-100 focus-visible:opacity-100" aria-label="Read this message aloud">
+            <button
+              onClick={() => onReplay(m.content)}
+              className="inline-flex items-center gap-1 rounded px-1 opacity-70 hover:text-foreground hover:opacity-100 focus-visible:opacity-100"
+              aria-label="Read this message aloud"
+            >
               <Volume2 className="size-3" aria-hidden /> Listen
             </button>
           )}
@@ -157,7 +167,9 @@ export function MessageList({
               <div
                 className={cn(
                   "max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md px-4 py-2.5 text-body sm:max-w-[75%]",
-                  pending.state === "sending" ? "bg-primary/70 text-primary-foreground" : "border border-destructive/40 bg-destructive-soft text-foreground",
+                  pending.state === "sending"
+                    ? "bg-primary/70 text-primary-foreground"
+                    : "border border-destructive/40 bg-destructive-soft text-foreground",
                 )}
               >
                 {pending.content}

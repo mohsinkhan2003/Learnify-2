@@ -44,17 +44,35 @@ export default function LoginPage() {
         </>
       )}
       {(login.error || googleFailed) && (
-        <div role="alert" className="mb-5 flex gap-2 rounded-md border border-destructive/20 bg-destructive-soft px-3 py-2.5 text-sm text-destructive">
+        <div
+          role="alert"
+          className="mb-5 flex gap-2 rounded-md border border-destructive/20 bg-destructive-soft px-3 py-2.5 text-sm text-destructive"
+        >
           <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
           {login.error ? errorMessage(login.error) : "Google sign-in didn't complete. Please try again."}
         </div>
       )}
       <form onSubmit={submit} className="space-y-4" noValidate>
         <FormField id="email" label="Email">
-          <Input {...fieldProps("email")} type="email" autoComplete="email" inputMode="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input
+            {...fieldProps("email")}
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </FormField>
         <FormField id="password" label="Password">
-          <Input {...fieldProps("password")} type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          <Input
+            {...fieldProps("password")}
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
         </FormField>
         <Button type="submit" size="lg" className="w-full" loading={login.isPending} disabled={!email || !password}>
           Sign in

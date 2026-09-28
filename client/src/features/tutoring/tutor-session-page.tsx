@@ -34,8 +34,16 @@ function StageSteps({ session }: { session: TutorSessionDto }) {
       <ol className="flex items-center gap-1.5" aria-label="Session progress">
         {STAGE_STEPS.map((step, i) => (
           <li key={step.key} className="flex flex-1 flex-col gap-1.5" aria-current={i === current ? "step" : undefined}>
-            <span className={cn("h-1.5 rounded-full bg-muted transition-colors duration-500", i < current && "bg-primary", i === current && "bg-primary/60")} />
-            <span className={cn("hidden text-[0.6875rem] font-medium text-muted-foreground md:block", i === current && "text-foreground")}>{step.label}</span>
+            <span
+              className={cn(
+                "h-1.5 rounded-full bg-muted transition-colors duration-500",
+                i < current && "bg-primary",
+                i === current && "bg-primary/60",
+              )}
+            />
+            <span className={cn("hidden text-[0.6875rem] font-medium text-muted-foreground md:block", i === current && "text-foreground")}>
+              {step.label}
+            </span>
           </li>
         ))}
       </ol>
@@ -52,7 +60,13 @@ function StageSteps({ session }: { session: TutorSessionDto }) {
   );
 }
 
-function StartScreen({ session, voiceAvailable, onStart, starting, error }: {
+function StartScreen({
+  session,
+  voiceAvailable,
+  onStart,
+  starting,
+  error,
+}: {
   session: TutorSessionDto;
   voiceAvailable: boolean;
   onStart: (withVoice: boolean) => void;
@@ -72,7 +86,8 @@ function StartScreen({ session, voiceAvailable, onStart, starting, error }: {
         </p>
         <h1 className="mt-2 text-page-title">{assignment.topic}</h1>
         <p className="mt-2 text-body text-muted-foreground">
-          {assignment.teacherName ? `Set by ${assignment.teacherName}. ` : ""}Your tutor will chat with you, ask questions one at a time and help if you get stuck.
+          {assignment.teacherName ? `Set by ${assignment.teacherName}. ` : ""}Your tutor will chat with you, ask questions one at a time and
+          help if you get stuck.
         </p>
         {assignment.dueAt && (
           <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -82,7 +97,9 @@ function StartScreen({ session, voiceAvailable, onStart, starting, error }: {
         <ul className="glass mx-auto mt-6 grid gap-3 rounded-xl p-4 text-left text-sm shadow-sm sm:grid-cols-3">
           {["A quick warm-up", "5 questions that make you think", "A summary, then hand it in"].map((t, i) => (
             <li key={t} className="flex items-start gap-2">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-soft text-[0.6875rem] font-semibold text-primary">{i + 1}</span>
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-soft text-[0.6875rem] font-semibold text-primary">
+                {i + 1}
+              </span>
               {t}
             </li>
           ))}
@@ -110,7 +127,10 @@ function StartScreen({ session, voiceAvailable, onStart, starting, error }: {
 
 function Celebration({ session }: { session: TutorSessionDto }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-success/25 bg-gradient-to-br from-success-soft via-card to-primary-soft p-5 shadow-md animate-fade-up" role="status">
+    <div
+      className="relative overflow-hidden rounded-2xl border border-success/25 bg-gradient-to-br from-success-soft via-card to-primary-soft p-5 shadow-md animate-fade-up"
+      role="status"
+    >
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-success text-white">
           <PartyPopper className="size-5" aria-hidden />
@@ -222,7 +242,12 @@ export default function TutorSessionPage() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <span tabIndex={progress.canComplete ? -1 : 0}>
-                  <Button onClick={() => setConfirmOpen(true)} disabled={!progress.canComplete} variant={progress.canComplete ? "default" : "outline"} size="sm">
+                  <Button
+                    onClick={() => setConfirmOpen(true)}
+                    disabled={!progress.canComplete}
+                    variant={progress.canComplete ? "default" : "outline"}
+                    size="sm"
+                  >
                     <CheckCircle2 aria-hidden /> Complete
                   </Button>
                 </span>
@@ -271,7 +296,9 @@ export default function TutorSessionPage() {
                   {progress.canComplete && (
                     <div className="flex flex-col gap-3 rounded-xl border border-primary/25 bg-primary-soft/80 p-3 text-sm sm:flex-row sm:items-center">
                       <Sparkles className="hidden size-5 shrink-0 text-primary sm:block" aria-hidden />
-                      <p className="flex-1">You've reached the summary. Read it through, ask a quick follow-up if you like, then hand it in.</p>
+                      <p className="flex-1">
+                        You've reached the summary. Read it through, ask a quick follow-up if you like, then hand it in.
+                      </p>
                       <Button size="sm" onClick={() => setConfirmOpen(true)}>
                         <CheckCircle2 aria-hidden /> Hand in homework
                       </Button>
@@ -298,23 +325,36 @@ export default function TutorSessionPage() {
                         onSend={sendText}
                         disabled={voiceBusy || !!thinking}
                         maxLength={data.limits.maxMessageLength}
-                        placeholder={progress.canComplete ? "Ask a follow-up, or hand in your homework" : voiceAvailable ? "Or type your answer…" : "Type your answer…"}
+                        placeholder={
+                          progress.canComplete
+                            ? "Ask a follow-up, or hand in your homework"
+                            : voiceAvailable
+                              ? "Or type your answer…"
+                              : "Type your answer…"
+                        }
                       />
                     </div>
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1">
                       <p className="text-xs" role="status" aria-live="polite">
                         {voiceAvailable ? (
                           <>
-                            <span className={cn("font-medium", voice.status === "listening" ? "text-primary" : "text-foreground")}>{status.title}</span>
+                            <span className={cn("font-medium", voice.status === "listening" ? "text-primary" : "text-foreground")}>
+                              {status.title}
+                            </span>
                             <span className="text-muted-foreground"> · {voice.hint ?? status.detail}</span>
                           </>
                         ) : (
-                          <span className="text-muted-foreground">Voice isn't supported in this browser — try Chrome, Edge or Safari. Typing works everywhere.</span>
+                          <span className="text-muted-foreground">
+                            Voice isn't supported in this browser — try Chrome, Edge or Safari. Typing works everywhere.
+                          </span>
                         )}
                       </p>
                       {voiceAvailable && (
                         <div className="flex items-center gap-1">
-                          <SpeakerToggle on={voice.prefs.speechOn} onToggle={() => voice.updatePrefs({ speechOn: !voice.prefs.speechOn })} />
+                          <SpeakerToggle
+                            on={voice.prefs.speechOn}
+                            onToggle={() => voice.updatePrefs({ speechOn: !voice.prefs.speechOn })}
+                          />
                           <button
                             type="button"
                             aria-pressed={voice.prefs.handsFree}
@@ -338,7 +378,9 @@ export default function TutorSessionPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Hand in your homework?</AlertDialogTitle>
-            <AlertDialogDescription>Your teacher will see that you've finished. You'll still be able to read this conversation afterwards.</AlertDialogDescription>
+            <AlertDialogDescription>
+              Your teacher will see that you've finished. You'll still be able to read this conversation afterwards.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           {complete.error ? (
             <p role="alert" className="text-sm text-destructive">

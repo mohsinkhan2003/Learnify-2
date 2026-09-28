@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, afterEach } from "vitest";
+import { describe, expect, it, afterEach } from "vitest";
 import { createAssignment, newMessageId, say, signUp, type Client } from "../helpers";
 import { setAiProvider, MockAiProvider, type AiProvider } from "../../server/ai/provider";
 import { PRACTICE_QUESTIONS } from "../../shared/tutor";
@@ -59,7 +59,12 @@ describe("tutoring session", () => {
     let last;
     for (let i = 0; i < PRACTICE_QUESTIONS; i++) last = await say(student, id, `Answer ${i}`);
     expect(last!.body.tutorMessage.stage).toBe("SUMMARY");
-    expect(last!.body.progress).toMatchObject({ tutorStage: "READY_TO_COMPLETE", status: "summary_provided", canComplete: true, practiceCompleted: PRACTICE_QUESTIONS });
+    expect(last!.body.progress).toMatchObject({
+      tutorStage: "READY_TO_COMPLETE",
+      status: "summary_provided",
+      canComplete: true,
+      practiceCompleted: PRACTICE_QUESTIONS,
+    });
 
     const [c1, c2] = await Promise.all([
       student.post(`/api/student/assignments/${id}/complete`),
@@ -183,9 +188,17 @@ describe("tutoring session", () => {
 
   it("validates message input", async () => {
     const { student, id } = await setup();
-    const empty = await student.post(`/api/student/assignments/${id}/messages`, { content: "   ", source: "text", clientMessageId: newMessageId() });
+    const empty = await student.post(`/api/student/assignments/${id}/messages`, {
+      content: "   ",
+      source: "text",
+      clientMessageId: newMessageId(),
+    });
     expect(empty.status).toBe(400);
-    const long = await student.post(`/api/student/assignments/${id}/messages`, { content: "x".repeat(2001), source: "text", clientMessageId: newMessageId() });
+    const long = await student.post(`/api/student/assignments/${id}/messages`, {
+      content: "x".repeat(2001),
+      source: "text",
+      clientMessageId: newMessageId(),
+    });
     expect(long.status).toBe(400);
     const noId = await student.post(`/api/student/assignments/${id}/messages`, { content: "hi", source: "text" });
     expect(noId.status).toBe(400);

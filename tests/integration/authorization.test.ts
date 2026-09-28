@@ -28,7 +28,12 @@ describe("authorization boundaries", () => {
   it("requires authentication for every protected area", async () => {
     const { client } = await import("../helpers");
     const anon = client();
-    for (const url of ["/api/teacher/overview", "/api/teacher/assignments", "/api/student/assignments", `/api/student/assignments/${assignment}`]) {
+    for (const url of [
+      "/api/teacher/overview",
+      "/api/teacher/assignments",
+      "/api/student/assignments",
+      `/api/student/assignments/${assignment}`,
+    ]) {
       expect((await anon.get(url)).status, url).toBe(401);
     }
   });

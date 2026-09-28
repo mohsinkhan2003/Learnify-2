@@ -57,7 +57,12 @@ function HomeworkCard({ a }: { a: StudentAssignmentListItem }) {
       href={`/student/assignments/${a.id}`}
       className="interactive-card group flex flex-col gap-4 rounded-lg border bg-card p-5 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex-row sm:items-center"
     >
-      <span className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-lg", status === "completed" ? "bg-success-soft text-success" : "bg-primary-soft text-primary")}>
+      <span
+        className={cn(
+          "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg",
+          status === "completed" ? "bg-success-soft text-success" : "bg-primary-soft text-primary",
+        )}
+      >
         {status === "completed" ? <CheckCircle2 className="size-6" aria-hidden /> : <BookOpen className="size-6" aria-hidden />}
       </span>
       <div className="min-w-0 flex-1">
@@ -80,7 +85,11 @@ function HomeworkCard({ a }: { a: StudentAssignmentListItem }) {
         </div>
         {status === "in_progress" && a.progress && (
           <div className="mt-3 max-w-xs">
-            <Meter value={a.progress.practiceCompleted} max={PRACTICE_QUESTIONS} label={`${a.progress.practiceCompleted} of ${PRACTICE_QUESTIONS} practice questions done`} />
+            <Meter
+              value={a.progress.practiceCompleted}
+              max={PRACTICE_QUESTIONS}
+              label={`${a.progress.practiceCompleted} of ${PRACTICE_QUESTIONS} practice questions done`}
+            />
           </div>
         )}
       </div>
@@ -105,7 +114,15 @@ function Section({ title, items, emptyHint }: { title: string; items: StudentAss
       <h2 className="text-section-title">
         {title} <span className="text-muted-foreground">({items.length})</span>
       </h2>
-      {items.length === 0 ? <p className="text-helper">{emptyHint}</p> : <div className="space-y-3">{items.map((a) => <HomeworkCard key={a.id} a={a} />)}</div>}
+      {items.length === 0 ? (
+        <p className="text-helper">{emptyHint}</p>
+      ) : (
+        <div className="space-y-3">
+          {items.map((a) => (
+            <HomeworkCard key={a.id} a={a} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -156,25 +173,40 @@ export default function StudentHomePage() {
           {greeting()}, {firstName(user?.name)}
         </h1>
         <p className="text-body text-muted-foreground">
-          {query.isLoading ? "Loading your homework…" : outstanding === 0 ? "You're all caught up." : `You have ${outstanding} piece${outstanding === 1 ? "" : "s"} of homework to do.`}
+          {query.isLoading
+            ? "Loading your homework…"
+            : outstanding === 0
+              ? "You're all caught up."
+              : `You have ${outstanding} piece${outstanding === 1 ? "" : "s"} of homework to do.`}
         </p>
       </header>
 
       {!onboardingDismissed && (
-        <section aria-labelledby="how-title" className="relative rounded-xl border bg-gradient-to-br from-primary-soft via-card to-accent p-5 shadow-sm sm:p-6">
-          <button onClick={dismissOnboarding} className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground hover:bg-card/70" aria-label="Dismiss how it works">
+        <section
+          aria-labelledby="how-title"
+          className="relative rounded-xl border bg-gradient-to-br from-primary-soft via-card to-accent p-5 shadow-sm sm:p-6"
+        >
+          <button
+            onClick={dismissOnboarding}
+            className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground hover:bg-card/70"
+            aria-label="Dismiss how it works"
+          >
             <X className="size-4" />
           </button>
           <h2 id="how-title" className="text-card-title">
             How it works
           </h2>
           <ol className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-5">
-            {["Pick your homework", "Talk (or type) to your tutor", "Answer its questions", "Read your summary", "Press Complete"].map((s, i) => (
-              <li key={s} className="flex items-center gap-2">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card text-xs font-semibold text-primary shadow-xs">{i + 1}</span>
-                {s}
-              </li>
-            ))}
+            {["Pick your homework", "Talk (or type) to your tutor", "Answer its questions", "Read your summary", "Press Complete"].map(
+              (s, i) => (
+                <li key={s} className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card text-xs font-semibold text-primary shadow-xs">
+                    {i + 1}
+                  </span>
+                  {s}
+                </li>
+              ),
+            )}
           </ol>
           <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
             <Mic className="size-3.5" aria-hidden /> Tip: voice works best in Chrome, Edge or Safari. You can always type instead.
