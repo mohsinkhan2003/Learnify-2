@@ -110,6 +110,9 @@ Accounts that existed before verification was added are treated as confirmed.
    (32+ random characters), then redeploy. The "Continue with Google" button appears
    automatically.
 
+> Environment variables are read when a deployment is built. After adding or changing one,
+> redeploy the **newest** deployment (Deployments → top row → ⋯ → Redeploy) or push a commit.
+
 How it differs from a long-running server:
 
 | Concern | On Vercel |
