@@ -25,6 +25,7 @@ import { Composer, MessageList, TutorAvatar } from "./conversation";
 import { useTutorSession } from "./use-tutor-session";
 import { useVoice } from "./voice/use-voice";
 import { unlockSpeech } from "./voice/speech";
+import { haptic } from "@/lib/haptics";
 import { MicDeniedHelp, SpeakerToggle, VoiceButton, voiceStatusText } from "./voice/voice-control";
 
 function StageSteps({ session }: { session: TutorSessionDto }) {
@@ -225,6 +226,7 @@ function TutorSession() {
   const sendText = async () => {
     const text = draft.trim();
     if (!text) return;
+    haptic();
     voice.cancel();
     setDraft("");
     const reply = await send(text, "text");
@@ -324,7 +326,10 @@ function TutorSession() {
                           size="md"
                           status={voice.status}
                           level={voice.level}
-                          onStart={() => void voice.startListening()}
+                          onStart={() => {
+                            haptic();
+                            void voice.startListening();
+                          }}
                           onStop={voice.stopListening}
                           onInterrupt={() => void voice.startListening()}
                         />

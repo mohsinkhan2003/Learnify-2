@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link, useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpenCheck, LayoutDashboard, Plus, School, Users } from "lucide-react";
+import { BookOpen, BookOpenCheck, CircleUser, LayoutDashboard, Plus, School, Users, type LucideIcon } from "lucide-react";
 import type { TeacherOverview } from "@shared/api";
 import { Logo } from "@/components/common/logo";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { queryKeys } from "@/lib/query";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "./user-menu";
 import { OfflineBanner } from "./offline-banner";
+import { PullToRefresh } from "./pull-to-refresh";
 
 function SkipLink() {
   return (
@@ -19,14 +20,22 @@ function SkipLink() {
   );
 }
 
-const TEACHER_NAV = [
+type NavEntry = { href: string; label: string; icon: LucideIcon; match: string };
+
+const TEACHER_NAV: NavEntry[] = [
   { href: "/teacher", label: "Overview", icon: LayoutDashboard, match: "/teacher" },
   { href: "/teacher/assignments", label: "Assignments", icon: BookOpenCheck, match: "/teacher/assignments/*?" },
   { href: "/teacher/classes", label: "Classes", icon: School, match: "/teacher/classes/*?" },
   { href: "/teacher/students", label: "Students", icon: Users, match: "/teacher/students" },
 ];
 
-function NavItem({ href, label, icon: Icon, match, compact }: (typeof TEACHER_NAV)[number] & { compact?: boolean }) {
+const STUDENT_NAV: NavEntry[] = [
+  { href: "/student", label: "Homework", icon: BookOpen, match: "/student" },
+  { href: "/student/classes", label: "Classes", icon: School, match: "/student/classes" },
+  { href: "/student/profile", label: "Profile", icon: CircleUser, match: "/student/profile" },
+];
+
+function NavItem({ href, label, icon: Icon, match, compact }: NavEntry & { compact?: boolean }) {
   const [active] = useRoute(match);
   return (
     <Link
@@ -35,11 +44,20 @@ function NavItem({ href, label, icon: Icon, match, compact }: (typeof TEACHER_NA
       className={cn(
         "group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
         active && "bg-primary-soft text-primary-strong hover:bg-primary-soft dark:text-primary",
-        compact && "flex-1 flex-col gap-1 rounded-none px-1 py-2 text-[0.6875rem] hover:bg-transparent",
+        compact &&
+          "min-h-14 flex-1 flex-col justify-center gap-1 rounded-xl px-1 py-1.5 text-[0.6875rem] hover:bg-transparent active:scale-95",
         compact && active && "bg-transparent",
       )}
     >
-      <Icon className="size-[1.125rem] shrink-0" aria-hidden />
+      <span
+        className={cn(
+          "flex items-center justify-center",
+          compact && "h-7 w-12 rounded-full transition-colors",
+          compact && active && "bg-primary-soft",
+        )}
+      >
+        <Icon className="size-[1.125rem] shrink-0" aria-hidden />
+      </span>
       {label}
     </Link>
   );
@@ -99,6 +117,7 @@ export function TeacherShell({ children }: { children: ReactNode }) {
       <OfflineBanner className="lg:ml-64" />
 
       <main id="main" className="px-4 pb-28 pt-6 sm:px-6 lg:ml-64 lg:px-8 lg:pb-12 lg:pt-8">
+        <PullToRefresh />
         <div className="mx-auto w-full max-w-6xl">{children}</div>
       </main>
 
@@ -114,24 +133,38 @@ export function TeacherShell({ children }: { children: ReactNode }) {
   );
 }
 
-/** Student layout: deliberately simple — one glass top bar, no navigation maze. */
+/** Student layout: glass top bar; on phones a bottom tab bar (Homework, Classes, Profile). */
 export function StudentShell({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
   const { user } = useAuth();
   return (
     <div className="app-backdrop min-h-dvh">
       <SkipLink />
       <header className="glass sticky top-0 z-20 border-x-0 border-t-0">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
           <Link href="/student" aria-label="Learnify home">
             <Logo />
           </Link>
+          <nav aria-label="Main" className="hidden flex-1 items-center gap-1 sm:flex">
+            {STUDENT_NAV.slice(0, 2).map((item) => (
+              <NavItem key={item.href} {...item} />
+            ))}
+          </nav>
           {user && <UserMenu user={user} />}
         </div>
       </header>
       <OfflineBanner />
-      <main id="main" className={cn("mx-auto px-4 pb-16 pt-6 sm:px-6 sm:pt-10", wide ? "max-w-6xl" : "max-w-5xl")}>
+      <main id="main" className={cn("mx-auto px-4 pb-28 pt-6 sm:px-6 sm:pb-16 sm:pt-10", wide ? "max-w-6xl" : "max-w-5xl")}>
+        <PullToRefresh />
         {children}
       </main>
+      <nav
+        aria-label="Main"
+        className="glass safe-bottom fixed inset-x-0 bottom-0 z-30 flex items-stretch border-x-0 border-b-0 px-2 pt-1 sm:hidden"
+      >
+        {STUDENT_NAV.map((item) => (
+          <NavItem key={item.href} {...item} compact />
+        ))}
+      </nav>
     </div>
   );
 }

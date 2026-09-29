@@ -15,7 +15,7 @@ function readStoredTheme(): Theme {
 function apply(theme: Theme) {
   const dark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.classList.toggle("dark", dark);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#101221" : "#fbfaf8");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#0e0f18" : "#f4f2fb");
 }
 
 const ThemeContext = createContext<{ theme: Theme; setTheme: (t: Theme) => void } | null>(null);

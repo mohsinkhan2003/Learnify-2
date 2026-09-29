@@ -16,14 +16,17 @@ export function AuthLayout({
 }) {
   return (
     <div className="app-backdrop grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
-      <div className="flex flex-col px-5 py-6 sm:px-10">
-        <Link href="/" aria-label="Learnify home" className="self-start">
+      <div className="flex flex-col px-4 py-6 sm:px-10">
+        <Link href="/" aria-label="Learnify home" className="self-center sm:self-start">
           <Logo />
         </Link>
-        <main id="main" className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">
-          <h1 className="text-page-title">{title}</h1>
-          <p className="mt-1.5 text-body text-muted-foreground">{subtitle}</p>
-          <div className="mt-8">{children}</div>
+        {/* On phones: an app-style sheet on the glass backdrop; on larger screens the same card, left-aligned. */}
+        <main id="main" className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-8 sm:py-10">
+          <div className="glass-card rounded-2xl px-5 py-6 sm:px-8 sm:py-8">
+            <h1 className="text-page-title">{title}</h1>
+            <p className="mt-1.5 text-body text-muted-foreground">{subtitle}</p>
+            <div className="mt-7">{children}</div>
+          </div>
           {footer && <div className="mt-6 text-center text-sm text-muted-foreground">{footer}</div>}
         </main>
       </div>

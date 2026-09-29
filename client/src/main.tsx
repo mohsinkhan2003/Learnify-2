@@ -2,6 +2,9 @@ import { createRoot } from "react-dom/client";
 import "@fontsource-variable/inter";
 import App from "./app/App";
 import "./index.css";
+import { captureInstallPrompt } from "./features/pwa/install";
+
+captureInstallPrompt();
 
 /**
  * Some hosts (e.g. Hugging Face Spaces) show the app inside an iframe on another site, where

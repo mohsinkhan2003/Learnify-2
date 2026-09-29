@@ -32,6 +32,8 @@ const ForgotPasswordPage = lazy(() => import("@/features/auth/password-pages").t
 const ResetPasswordPage = lazy(() => import("@/features/auth/password-pages").then((m) => ({ default: m.ResetPasswordPage })));
 const VerifyEmailPage = lazy(() => import("@/features/auth/verify-email"));
 const JoinClassPage = lazy(() => import("@/features/student/join-page"));
+const StudentClassesPage = lazy(() => import("@/features/student/student-classes-page"));
+const ProfilePage = lazy(() => import("@/features/student/profile-page"));
 const StudentHomePage = lazy(() => import("@/features/student/student-home-page"));
 const TutorSessionPage = lazy(() => {
   // Fetch the session while the page's code downloads, instead of one after the other.
@@ -128,6 +130,20 @@ function Routes() {
         <Route path="/student/assignments/:id">
           <RequireRole role="student">
             <TutorSessionPage />
+          </RequireRole>
+        </Route>
+        <Route path="/student/classes">
+          <RequireRole role="student">
+            <StudentShell>
+              <StudentClassesPage />
+            </StudentShell>
+          </RequireRole>
+        </Route>
+        <Route path="/student/profile">
+          <RequireRole role="student">
+            <StudentShell>
+              <ProfilePage />
+            </StudentShell>
           </RequireRole>
         </Route>
         <Route path="/student">

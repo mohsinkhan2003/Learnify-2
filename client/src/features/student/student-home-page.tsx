@@ -11,6 +11,7 @@ import { EmptyState, ErrorState, ListSkeleton } from "@/components/common/states
 import { useAuth } from "@/features/auth/use-auth";
 import { usePush } from "@/features/notifications/use-push";
 import { MyClasses } from "./join-class";
+import { InstallCard } from "@/features/pwa/install-card";
 import { firstName, formatShortDate, greeting } from "@/lib/format";
 import { queryKeys } from "@/lib/query";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,7 @@ function actionFor(a: StudentAssignmentListItem): { label: string; variant: "def
   return { label: "Start", variant: "default" };
 }
 
+/** Compact, thumb-friendly card: icon, title and status on the left, one clear action on the right. */
 function HomeworkCard({ a }: { a: StudentAssignmentListItem }) {
   const status = a.progress?.status ?? "not_started";
   const isNew = status === "not_started" && Date.now() - new Date(a.releaseAt).getTime() < NEW_WINDOW_MS;
@@ -56,36 +58,40 @@ function HomeworkCard({ a }: { a: StudentAssignmentListItem }) {
   return (
     <Link
       href={`/student/assignments/${a.id}`}
-      className="interactive-card group flex flex-col gap-4 rounded-lg border bg-card p-5 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex-row sm:items-center"
+      className="interactive-card group flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99] sm:gap-4 sm:p-5"
     >
       <span
         className={cn(
-          "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg",
+          "flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-lg sm:h-12 sm:w-12 sm:self-center",
           status === "completed" ? "bg-success-soft text-success" : "bg-primary-soft text-primary",
         )}
       >
-        {status === "completed" ? <CheckCircle2 className="size-6" aria-hidden /> : <BookOpen className="size-6" aria-hidden />}
+        {status === "completed" ? (
+          <CheckCircle2 className="size-5 sm:size-6" aria-hidden />
+        ) : (
+          <BookOpen className="size-5 sm:size-6" aria-hidden />
+        )}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-eyebrow">
+          <p className="truncate text-eyebrow">
             {a.subject} · {a.grade}
           </p>
           {isNew && <Badge variant="accent">New</Badge>}
         </div>
-        <h3 className="mt-1 text-card-title group-hover:text-primary">{a.topic}</h3>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+        <h3 className="mt-0.5 truncate text-card-title group-hover:text-primary">{a.topic}</h3>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8125rem] text-muted-foreground">
           <StatusBadge status={status} />
-          {a.teacherName && <span>{a.teacherName}</span>}
           {a.dueAt && (
             <span className={cn("inline-flex items-center gap-1", overdue && "font-medium text-destructive")}>
               <CalendarClock className="size-3.5" aria-hidden />
               {overdue ? "Overdue" : "Due"} {formatShortDate(a.dueAt)}
             </span>
           )}
+          {a.teacherName && <span className="hidden sm:inline">{a.teacherName}</span>}
         </div>
         {status === "in_progress" && a.progress && (
-          <div className="mt-3 max-w-xs">
+          <div className="mt-2.5 max-w-xs">
             <Meter
               value={a.progress.practiceCompleted}
               max={PRACTICE_QUESTIONS}
@@ -94,15 +100,13 @@ function HomeworkCard({ a }: { a: StudentAssignmentListItem }) {
           </div>
         )}
       </div>
-      <span className="shrink-0">
-        <span
-          className={cn(
-            "inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-medium transition-colors",
-            action.variant === "outline" ? "border bg-card" : "bg-primary text-primary-foreground group-hover:bg-primary/90",
-          )}
-        >
-          {action.label} <ArrowRight className="size-4" aria-hidden />
-        </span>
+      <span
+        className={cn(
+          "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition-colors sm:h-10 sm:px-4",
+          action.variant === "outline" ? "border bg-card" : "bg-primary text-primary-foreground group-hover:bg-primary/90",
+        )}
+      >
+        {action.label} <ArrowRight className="hidden size-4 sm:block" aria-hidden />
       </span>
     </Link>
   );
@@ -219,6 +223,8 @@ export default function StudentHomePage() {
           </p>
         </section>
       )}
+
+      <InstallCard />
 
       <MyClasses />
 

@@ -274,7 +274,7 @@ export function Composer({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
-        className="max-h-40 min-h-[2.5rem] flex-1 resize-none bg-transparent [field-sizing:content] py-2 text-body outline-none placeholder:text-muted-foreground/80 focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="max-h-40 min-h-[2.5rem] flex-1 resize-none bg-transparent [field-sizing:content] py-2 text-base sm:text-body outline-none placeholder:text-muted-foreground/80 focus-visible:ring-0 focus-visible:ring-offset-0"
         aria-describedby={nearLimit ? "composer-count" : undefined}
       />
       {nearLimit && (
