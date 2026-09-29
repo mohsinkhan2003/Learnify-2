@@ -1,7 +1,80 @@
-import { Link } from "wouter";
-import { ArrowRight, BarChart3, Mic, ShieldCheck, Sparkles } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { Link, useLocation } from "wouter";
+import { ArrowRight, BarChart3, GraduationCap, Mic, Presentation, ShieldCheck, Sparkles } from "lucide-react";
 import { Logo } from "@/components/common/logo";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+/** Students usually arrive with a class code from their teacher: take them straight to the invite page. */
+function StudentCodeCard() {
+  const [, navigate] = useLocation();
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    // Accept "abcd-2345", "ABCD 2345" or a pasted invite link.
+    const raw = code.match(/\/join\/([A-Za-z0-9-]+)/)?.[1] ?? code;
+    const clean = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (clean.length !== 8) return setError("Class codes have 8 letters and numbers, like ABCD-2345.");
+    navigate(`/join/${clean.slice(0, 4)}-${clean.slice(4)}`);
+  };
+  return (
+    <div className="flex flex-col rounded-xl border bg-card p-6 text-left shadow-sm">
+      <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-md bg-primary-soft text-primary">
+        <GraduationCap className="size-5" aria-hidden />
+      </span>
+      <h2 className="text-card-title">I'm a student</h2>
+      <p className="mt-1 text-helper">Enter the class code from your teacher to create your account and join the class.</p>
+      <form onSubmit={submit} className="mt-4 flex gap-2" noValidate>
+        <Input
+          aria-label="Class code"
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "landing-code-error" : undefined}
+          placeholder="ABCD-2345"
+          autoCapitalize="characters"
+          autoComplete="off"
+          spellCheck={false}
+          className="font-mono uppercase tracking-wider"
+          value={code}
+          onChange={(e) => {
+            setCode(e.target.value);
+            setError(null);
+          }}
+        />
+        <Button type="submit">Join</Button>
+      </form>
+      {error && (
+        <p id="landing-code-error" className="mt-2 text-[0.8125rem] font-medium text-destructive">
+          {error}
+        </p>
+      )}
+      <p className="mt-auto pt-4 text-helper">
+        No code yet?{" "}
+        <Link href="/signup?role=student" className="font-medium text-primary hover:underline">
+          Create a student account
+        </Link>{" "}
+        and join later.
+      </p>
+    </div>
+  );
+}
+
+function TeacherCard() {
+  return (
+    <div className="flex flex-col rounded-xl border bg-card p-6 text-left shadow-sm">
+      <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-md bg-primary-soft text-primary">
+        <Presentation className="size-5" aria-hidden />
+      </span>
+      <h2 className="text-card-title">I'm a teacher</h2>
+      <p className="mt-1 text-helper">Create classes, invite students with a link or QR code, and set homework for the AI tutor.</p>
+      <Button asChild size="lg" className="mt-auto">
+        <Link href="/signup?role=teacher">
+          Create a teacher account <ArrowRight aria-hidden />
+        </Link>
+      </Button>
+    </div>
+  );
+}
 
 const FEATURES = [
   { icon: Mic, title: "Voice-first tutoring", body: "Students talk through homework naturally, with a typed transcript kept for review." },
@@ -45,16 +118,16 @@ export default function LandingPage() {
             Teachers set a topic. Learnify guides each student through it — by voice or text — then shows teachers exactly where students
             thrived and where they may need help.
           </p>
-          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Button asChild size="lg">
-              <Link href="/signup">
-                Create a free account <ArrowRight aria-hidden />
-              </Link>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <Link href="/login">I already have an account</Link>
-            </Button>
+          <div className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
+            <StudentCodeCard />
+            <TeacherCard />
           </div>
+          <p className="mt-6 text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <Link href="/login" className="font-medium text-primary hover:underline">
+              Sign in
+            </Link>
+          </p>
         </section>
         <section aria-label="Features" className="grid gap-4 pb-24 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map(({ icon: Icon, title, body }) => (

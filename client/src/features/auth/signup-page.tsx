@@ -120,9 +120,13 @@ export default function SignupPage() {
   const [, navigate] = useLocation();
   const signup = useSignup();
   const providers = useAuthProviders();
-  const initialCode = new URLSearchParams(useSearch()).get("code") ?? "";
-  // A class code in the link means a student was invited.
-  const [role, setRole] = useState<Role | null>(initialCode ? "student" : null);
+  const params = new URLSearchParams(useSearch());
+  const initialCode = params.get("code") ?? "";
+  const roleParam = params.get("role");
+  // A class code in the link means a student was invited; ?role= comes from the landing page.
+  const [role, setRole] = useState<Role | null>(
+    initialCode || roleParam === "student" ? "student" : roleParam === "teacher" ? "teacher" : null,
+  );
   const [step, setStep] = useState<1 | 2>(1);
   const [values, setValues] = useState({ name: "", email: "", password: "", school: "", subject: "", classCode: initialCode });
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({});

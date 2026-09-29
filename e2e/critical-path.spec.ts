@@ -204,7 +204,11 @@ test("a student joins through the teacher's invite link", async ({ browser }) =>
   await expectAccessible(teacher);
 
   const student = await (await browser.newContext()).newPage();
-  await student.goto(link);
+  // Students without the link can type the code on the home page.
+  await student.goto("/");
+  await student.getByLabel("Class code").fill(link.split("/join/")[1].toLowerCase());
+  await student.getByRole("button", { name: "Join" }).click();
+  await student.waitForURL(link.replace(/^https?:\/\/[^/]+/, "**"));
   await expect(student.getByRole("heading", { name: "Join Geography class" })).toBeVisible();
   await expect(student.getByText(/Ines invited you/)).toBeVisible();
   await expectAccessible(student);

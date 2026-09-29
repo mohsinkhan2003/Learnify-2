@@ -31,8 +31,12 @@ export default function LoginPage() {
       footer={
         <>
           New to Learnify?{" "}
-          <Link href="/signup" className="font-medium text-primary hover:underline">
-            Create an account
+          <Link href="/signup?role=student" className="font-medium text-primary hover:underline">
+            Student sign-up
+          </Link>{" "}
+          ·{" "}
+          <Link href="/signup?role=teacher" className="font-medium text-primary hover:underline">
+            Teacher sign-up
           </Link>
         </>
       }
