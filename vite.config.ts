@@ -44,6 +44,12 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        // Icons are tiny and shared by many screens; one file instead of dozens of 1 KB requests.
+        manualChunks: (id) => (id.includes("node_modules/lucide-react/") ? "icons" : undefined),
+      },
+    },
   },
   server: {
     fs: {

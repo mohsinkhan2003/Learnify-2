@@ -42,6 +42,34 @@ const TutorSessionPage = lazy(() => {
   return import("@/features/tutoring/tutor-session-page");
 });
 
+/**
+ * Opening a signed-in page directly (a bookmark, the installed app, a reload) would otherwise
+ * load in steps: app → login check → layout → page → data. Start the layout, the page's code
+ * and its data for the address being opened right away, all in parallel. (If the visitor turns
+ * out to be signed out, the data requests just fail quietly and they are sent to sign in.)
+ */
+function warmUp(path: string) {
+  const prefetch = (queryKey: readonly unknown[]) => void queryClient.prefetchQuery({ queryKey, staleTime: 10_000 }).catch(() => {});
+  if (!/^\/(student|teacher)(\/|$)/.test(path)) return;
+  void import("@/components/layout/shells");
+  const classId = path.match(/^\/teacher\/classes\/([0-9a-f-]{36})$/i)?.[1];
+  if (path === "/student") {
+    void import("@/features/student/student-home-page");
+    prefetch(queryKeys.studentAssignments);
+    prefetch(queryKeys.studentClasses);
+  } else if (path === "/student/classes") {
+    void import("@/features/student/student-classes-page");
+    prefetch(queryKeys.studentClasses);
+  } else if (path === "/teacher") {
+    void import("@/features/teacher/overview-page");
+    prefetch(queryKeys.teacherOverview);
+  } else if (classId) {
+    void import("@/features/teacher/class-detail-page");
+    prefetch(queryKeys.classDetail(classId));
+  }
+}
+warmUp(window.location.pathname);
+
 function Home() {
   const { user, isLoading } = useAuth();
   if (isLoading) return <FullPageSpinner />;
