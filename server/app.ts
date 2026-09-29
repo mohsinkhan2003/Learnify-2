@@ -15,6 +15,7 @@ import studentRoutes from "./modules/tutoring/student.routes";
 import pushRoutes from "./notifications/push.routes";
 import { publicClassRoutes, studentClassRoutes } from "./modules/classes/classes.routes";
 import { runMaintenance } from "./jobs";
+import { THEME_INIT_CSP } from "./lib/csp";
 import { timingSafeEqual } from "crypto";
 
 /** Builds the Express app (API + security middleware). The frontend is attached by the caller. */
@@ -33,7 +34,7 @@ export function createApp(): Express {
           : {
               directives: {
                 defaultSrc: ["'self'"],
-                scriptSrc: ["'self'"],
+                scriptSrc: ["'self'", THEME_INIT_CSP],
                 styleSrc: ["'self'", "'unsafe-inline'"],
                 fontSrc: ["'self'", "data:"],
                 imgSrc: ["'self'", "data:", "blob:", "https:"], // Google profile photos

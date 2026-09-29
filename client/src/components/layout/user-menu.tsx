@@ -73,7 +73,7 @@ export function UserMenu({ user }: { user: PublicUser }) {
       >
         <Avatar className="h-9 w-9 border">
           {user.avatar && <AvatarImage src={user.avatar} alt="" referrerPolicy="no-referrer" />}
-          <AvatarFallback className="bg-primary-soft text-sm font-semibold text-primary-strong dark:text-primary">
+          <AvatarFallback aria-hidden className="bg-primary-soft text-sm font-semibold text-primary-strong dark:text-primary">
             {initials(user.name)}
           </AvatarFallback>
         </Avatar>

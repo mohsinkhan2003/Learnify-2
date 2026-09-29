@@ -5,6 +5,7 @@
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { build } from "esbuild";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -50,6 +51,10 @@ fs.writeFileSync(
 );
 
 // 3. Routing, caching and security headers for the static client. Mirrors server/app.ts + static.ts.
+// The one inline script (theme init, see shared/theme-init.ts) is allowed by its hash.
+const indexHtml = fs.readFileSync(path.join(out, "static/index.html"), "utf8");
+const inline = [...indexHtml.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+const scriptHashes = inline.map((code) => `'sha256-${crypto.createHash("sha256").update(code).digest("base64")}'`);
 const csp = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -58,7 +63,7 @@ const csp = [
   "frame-ancestors 'none'",
   "img-src 'self' data: blob: https:",
   "object-src 'none'",
-  "script-src 'self'",
+  `script-src 'self' ${scriptHashes.join(" ")}`.trim(),
   "script-src-attr 'none'",
   "style-src 'self' 'unsafe-inline'",
   "upgrade-insecure-requests",

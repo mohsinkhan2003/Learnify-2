@@ -1,0 +1,9 @@
+# Public pages can be indexed; signed-in areas, invite links and one-time links cannot.
+User-agent: *
+Disallow: /api/
+Disallow: /teacher
+Disallow: /student
+Disallow: /join/
+Disallow: /verify-email
+Disallow: /reset-password
+Disallow: /signup/complete

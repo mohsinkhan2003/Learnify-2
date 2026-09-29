@@ -6,6 +6,8 @@ import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { PendingMessage } from "./use-tutor-session";
 
+const NATIVE_AUTOSIZE = typeof CSS !== "undefined" && CSS.supports?.("field-sizing", "content");
+
 export function TutorAvatar({ className }: { className?: string }) {
   return (
     <span
@@ -117,7 +119,9 @@ export function MessageList({
   };
 
   useLayoutEffect(() => {
-    scrollToBottom();
+    // Next frame, after layout has happened anyway (avoids a forced synchronous reflow on load).
+    const raf = requestAnimationFrame(() => scrollToBottom());
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   // Follow new content if the student is at the bottom, or if they just sent something themselves.
@@ -235,8 +239,9 @@ export function Composer({
   const ref = inputRef ?? localRef;
 
   useLayoutEffect(() => {
+    // Browsers with `field-sizing: content` grow the box natively; measure only elsewhere.
     const el = ref.current;
-    if (!el) return;
+    if (!el || NATIVE_AUTOSIZE) return;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [value, ref]);
@@ -269,7 +274,7 @@ export function Composer({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
-        className="max-h-40 min-h-[2.5rem] flex-1 resize-none bg-transparent py-2 text-body outline-none placeholder:text-muted-foreground/80 focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="max-h-40 min-h-[2.5rem] flex-1 resize-none bg-transparent [field-sizing:content] py-2 text-body outline-none placeholder:text-muted-foreground/80 focus-visible:ring-0 focus-visible:ring-offset-0"
         aria-describedby={nearLimit ? "composer-count" : undefined}
       />
       {nearLimit && (

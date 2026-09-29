@@ -17,9 +17,10 @@ function WhatsAppIcon() {
   );
 }
 
-function useQr(text: string, size: number) {
+function useQr(text: string, size: number, enabled = true) {
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
+    if (!enabled) return;
     let live = true;
     QRCode.toDataURL(text, { width: size, margin: 1, errorCorrectionLevel: "M" })
       .then((url) => live && setSrc(url))
@@ -27,7 +28,7 @@ function useQr(text: string, size: number) {
     return () => {
       live = false;
     };
-  }, [text, size]);
+  }, [text, size, enabled]);
   return src;
 }
 
@@ -37,7 +38,9 @@ export function InvitePanel({ cls, onNewCode, regenerating }: { cls: ClassDto; o
   const [presenting, setPresenting] = useState(false);
   const message = `Join my class "${cls.name}" on Learnify: ${url} (class code ${cls.joinCode})`;
   const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
-  const qr = useQr(url, 560);
+  // Page thumbnail at 2× its 160 px display size; the classroom-screen version only when opened.
+  const qr = useQr(url, 320);
+  const bigQr = useQr(url, 720, presenting);
 
   return (
     <section aria-labelledby="invite-title" className="glass rounded-xl p-6 shadow-md">
@@ -114,7 +117,7 @@ export function InvitePanel({ cls, onNewCode, regenerating }: { cls: ClassDto; o
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center gap-5 py-2">
-            {qr && <img src={qr} alt="" className="w-full max-w-[22rem] rounded-xl bg-white p-3" />}
+            {bigQr && <img src={bigQr} alt="" className="w-full max-w-[22rem] rounded-xl bg-white p-3" />}
             <p className="font-mono text-5xl font-bold tracking-[0.2em] sm:text-6xl">{cls.joinCode}</p>
             <p className="break-all text-center font-mono text-sm text-muted-foreground">{url}</p>
           </div>

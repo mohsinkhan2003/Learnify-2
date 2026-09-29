@@ -8,10 +8,10 @@
  * Updates: a new worker waits until the page asks it to activate (SKIP_WAITING), so users
  * choose when to reload and are never stuck on a stale build.
  */
-const VERSION = "v12";
+const VERSION = "v13";
 const SHELL_CACHE = `learnify-shell-${VERSION}`;
 const ASSET_CACHE = `learnify-assets-${VERSION}`;
-const SHELL = ["/", "/manifest.json", "/icon.svg", "/icon-192.png", "/theme-init.js"];
+const SHELL = ["/", "/manifest.json", "/icon.svg", "/icon-192.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL.map((url) => new Request(url, { cache: "reload" })))));

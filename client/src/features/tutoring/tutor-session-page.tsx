@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Logo } from "@/components/common/logo";
 import { ErrorState, FullPageSpinner } from "@/components/common/states";
 import { OfflineBanner } from "@/components/layout/offline-banner";
@@ -151,7 +151,16 @@ function Celebration({ session }: { session: TutorSessionDto }) {
   );
 }
 
+/** Tooltips are only used on this page, so their provider lives here instead of in the app root. */
 export default function TutorSessionPage() {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <TutorSession />
+    </TooltipProvider>
+  );
+}
+
+function TutorSession() {
   const { id } = useParams<{ id: string }>();
   const { session, start, send, pending, discardPending, complete } = useTutorSession(id!);
   const [draft, setDraft] = useState("");

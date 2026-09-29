@@ -2,19 +2,21 @@ import { lazy, Suspense } from "react";
 import { Redirect, Route, Switch, useParams } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { FullPageSpinner } from "@/components/common/states";
-import { StudentShell, TeacherShell } from "@/components/layout/shells";
 import { homePathFor, useAuth } from "@/features/auth/use-auth";
 import { useServiceWorkerUpdate } from "@/features/pwa/service-worker";
-import { queryClient } from "@/lib/query";
+import { queryClient, queryKeys } from "@/lib/query";
 import { ErrorBoundary } from "./error-boundary";
 import { RedirectIfSignedIn, RequireRole } from "./guards";
 import { ThemeProvider } from "./theme";
 
 // Route-level code splitting: teachers never download the tutor, students never download analytics.
+// The signed-in shells (menus, date formatting) and the toaster also load on demand, so the
+// public pages start with only React, the router and the data layer.
+const TeacherShell = lazy(() => import("@/components/layout/shells").then((m) => ({ default: m.TeacherShell })));
+const StudentShell = lazy(() => import("@/components/layout/shells").then((m) => ({ default: m.StudentShell })));
+const Toaster = lazy(() => import("@/components/ui/toaster").then((m) => ({ default: m.Toaster })));
 const LandingPage = lazy(() => import("@/features/auth/landing-page"));
 const LoginPage = lazy(() => import("@/features/auth/login-page"));
 const SignupPage = lazy(() => import("@/features/auth/signup-page"));
@@ -31,7 +33,12 @@ const ResetPasswordPage = lazy(() => import("@/features/auth/password-pages").th
 const VerifyEmailPage = lazy(() => import("@/features/auth/verify-email"));
 const JoinClassPage = lazy(() => import("@/features/student/join-page"));
 const StudentHomePage = lazy(() => import("@/features/student/student-home-page"));
-const TutorSessionPage = lazy(() => import("@/features/tutoring/tutor-session-page"));
+const TutorSessionPage = lazy(() => {
+  // Fetch the session while the page's code downloads, instead of one after the other.
+  const id = window.location.pathname.match(/^\/student\/assignments\/([0-9a-f-]{36})$/i)?.[1];
+  if (id) void queryClient.prefetchQuery({ queryKey: queryKeys.tutorSession(id), staleTime: 10_000 });
+  return import("@/features/tutoring/tutor-session-page");
+});
 
 function Home() {
   const { user, isLoading } = useAuth();
@@ -145,11 +152,11 @@ export default function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <TooltipProvider delayDuration={200}>
-            <Routes />
-            <UpdateBanner />
+          <Routes />
+          <UpdateBanner />
+          <Suspense fallback={null}>
             <Toaster />
-          </TooltipProvider>
+          </Suspense>
         </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>

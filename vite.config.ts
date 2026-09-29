@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import { THEME_INIT_SCRIPT } from "./shared/theme-init";
 
 // Replit-specific dev tooling is only loaded when running inside a Repl.
 const replitPlugins =
@@ -13,7 +14,26 @@ const replitPlugins =
     : [];
 
 export default defineConfig({
-  plugins: [react(), ...replitPlugins],
+  plugins: [
+    react(),
+    {
+      // Inline the tiny theme script so it doesn't cost a render-blocking request.
+      name: "learnify-inline-theme-init",
+      transformIndexHtml: (html) => html.replace('<script src="/theme-init.js"></script>', `<script>${THEME_INIT_SCRIPT}</script>`),
+    },
+    {
+      // Preload the Latin UI font so text renders in its final face sooner (it's always needed).
+      name: "learnify-preload-font",
+      apply: "build",
+      transformIndexHtml(html, ctx) {
+        const font = Object.keys(ctx.bundle ?? {}).find((f) => /inter-latin-wght-normal-.*\.woff2$/.test(f));
+        return font
+          ? html.replace("</head>", `  <link rel="preload" href="/${font}" as="font" type="font/woff2" crossorigin />\n  </head>`)
+          : html;
+      },
+    },
+    ...replitPlugins,
+  ],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
