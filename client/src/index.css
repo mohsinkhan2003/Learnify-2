@@ -47,9 +47,25 @@
     --info: 205 85% 38%;
     --info-soft: 205 90% 95%;
 
-    /* Glass: translucent surface + blur, used sparingly (nav, tutor panel, floating controls). */
-    --glass: 0 0% 100% / 0.72;
-    --glass-border: 0 0% 100% / 0.7;
+    /*
+     * Glass system.
+     *  - Cards: translucent over the backdrop, no blur (free to render on any phone).
+     *  - .glass: translucent + blur, only for floating chrome (top bar, tab bar, tutor dock):
+     *    at most 3 per screen, never animated.
+     *  - Text always sits on a tint strong enough for WCAG AA contrast.
+     */
+    --card-alpha: 0.74;
+    --popover-alpha: 0.94;
+    --card-edge: 0 0% 100% / 0.85;
+    --glass: 0 0% 100% / 0.66;
+    --glass-border: 0 0% 100% / 0.75;
+    --glass-blur: 20px;
+    /* Backdrop colour fields */
+    --mesh-1: 243 90% 72%;
+    --mesh-2: 262 85% 76%;
+    --mesh-3: 195 85% 70%;
+    --mesh-4: 20 95% 78%;
+    --mesh-strength: 0.32;
 
     --radius: 0.875rem;
     --shadow-color: 232 30% 20%;
@@ -94,7 +110,7 @@
     --ring: 243 90% 72%;
 
     --primary: 243 90% 72%;
-    --primary-foreground: 243 50% 11%;
+    --primary-foreground: 243 55% 6%;
     --primary-soft: 243 40% 18%;
     --primary-strong: 243 95% 82%;
 
@@ -115,8 +131,16 @@
     --info: 205 85% 66%;
     --info-soft: 205 45% 15%;
 
-    --glass: 232 20% 12% / 0.7;
-    --glass-border: 0 0% 100% / 0.08;
+    --card-alpha: 0.62;
+    --popover-alpha: 0.95;
+    --card-edge: 0 0% 100% / 0.08;
+    --glass: 232 22% 11% / 0.62;
+    --glass-border: 0 0% 100% / 0.1;
+    --mesh-1: 243 70% 45%;
+    --mesh-2: 268 65% 42%;
+    --mesh-3: 200 80% 32%;
+    --mesh-4: 320 55% 34%;
+    --mesh-strength: 0.42;
     --shadow-color: 232 50% 2%;
   }
 
@@ -132,6 +156,30 @@
     @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "cv11", "ss01";
     text-rendering: optimizeLegibility;
+  }
+
+  /*
+   * The glass backdrop: soft colour fields painted once on a fixed layer behind everything
+   * (static: no animation, no background-attachment: fixed, so scrolling stays cheap).
+   */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: var(--mesh-strength);
+    background:
+      radial-gradient(40rem 30rem at 12% -8%, hsl(var(--mesh-1)), transparent 70%),
+      radial-gradient(36rem 28rem at 100% 8%, hsl(var(--mesh-2)), transparent 70%),
+      radial-gradient(40rem 32rem at 85% 100%, hsl(var(--mesh-3)), transparent 70%),
+      radial-gradient(30rem 26rem at 0% 90%, hsl(var(--mesh-4)), transparent 70%);
+  }
+
+  /* Card edges catch the light, like glass. */
+  .border.bg-card:not(.border-input),
+  .border.bg-popover:not(.border-input) {
+    border-color: hsl(var(--card-edge));
   }
 
   :focus-visible {
@@ -177,16 +225,24 @@
   .surface {
     @apply rounded-[var(--radius)] border bg-card shadow-[var(--shadow-sm)];
   }
+  /* Blurred glass: floating chrome only (top bar, tab bar, tutor dock). */
   .glass {
     background: hsl(var(--glass));
     border: 1px solid hsl(var(--glass-border));
-    -webkit-backdrop-filter: saturate(160%) blur(18px);
-    backdrop-filter: saturate(160%) blur(18px);
+    -webkit-backdrop-filter: saturate(170%) blur(var(--glass-blur));
+    backdrop-filter: saturate(170%) blur(var(--glass-blur));
   }
+  /* Glass look without blur, for larger in-page panels. */
+  .glass-card {
+    background: hsl(var(--card) / var(--card-alpha));
+    border: 1px solid hsl(var(--card-edge));
+    box-shadow:
+      var(--shadow-md),
+      inset 0 1px 0 hsl(0 0% 100% / 0.35);
+  }
+  /* Page wrapper: transparent so the fixed backdrop shows through. */
   .app-backdrop {
-    background:
-      radial-gradient(60rem 40rem at 110% -10%, hsl(var(--accent-strong) / 0.1), transparent 60%),
-      radial-gradient(50rem 36rem at -10% -20%, hsl(var(--primary) / 0.1), transparent 60%), hsl(var(--background));
+    background: transparent;
   }
   .interactive-card {
     @apply transition-[box-shadow,transform,border-color] duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[var(--shadow-md)];
@@ -224,8 +280,22 @@
   }
 }
 @media (prefers-reduced-transparency: reduce) {
+  :root {
+    --card-alpha: 1;
+    --popover-alpha: 1;
+  }
   .glass {
     background: hsl(var(--card));
+    -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
+  body::before {
+    display: none;
+  }
+}
+/* Low-memory phones (flagged by the theme script): keep the look, drop the blur. */
+.lite .glass {
+  background: hsl(var(--card) / 0.96);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }

@@ -69,7 +69,7 @@ function Message({ m, onReplay }: { m: ChatMessageDto; onReplay?: (text: string)
           {tutor && onReplay && (
             <button
               onClick={() => onReplay(m.content)}
-              className="inline-flex items-center gap-1 rounded px-1 opacity-70 hover:text-foreground hover:opacity-100 focus-visible:opacity-100"
+              className="inline-flex items-center gap-1 rounded px-1 hover:text-foreground"
               aria-label="Read this message aloud"
             >
               <Volume2 className="size-3" aria-hidden /> Listen

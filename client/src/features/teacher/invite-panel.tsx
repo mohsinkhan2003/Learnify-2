@@ -43,7 +43,7 @@ export function InvitePanel({ cls, onNewCode, regenerating }: { cls: ClassDto; o
   const bigQr = useQr(url, 720, presenting);
 
   return (
-    <section aria-labelledby="invite-title" className="glass rounded-xl p-6 shadow-md">
+    <section aria-labelledby="invite-title" className="glass-card rounded-xl p-6">
       <h2 id="invite-title" className="text-section-title">
         Invite students
       </h2>

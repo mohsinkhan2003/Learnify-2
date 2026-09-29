@@ -31,8 +31,18 @@ export default {
         border: token("border"),
         input: token("input"),
         ring: token("ring"),
-        card: { DEFAULT: token("card"), foreground: token("card-foreground"), border: token("border") },
-        popover: { DEFAULT: token("popover"), foreground: token("popover-foreground"), border: token("border") },
+        // Cards and popovers are translucent (the glass look); --card-alpha / --popover-alpha become 1
+        // when the user asks for reduced transparency.
+        card: {
+          DEFAULT: "hsl(var(--card) / calc(<alpha-value> * var(--card-alpha)))",
+          foreground: token("card-foreground"),
+          border: token("border"),
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover) / calc(<alpha-value> * var(--popover-alpha)))",
+          foreground: token("popover-foreground"),
+          border: token("border"),
+        },
         "surface-muted": token("surface-muted"),
         primary: {
           DEFAULT: token("primary"),

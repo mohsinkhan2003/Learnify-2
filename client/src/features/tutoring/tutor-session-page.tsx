@@ -95,7 +95,7 @@ function StartScreen({
             <CalendarClock className="size-4" aria-hidden /> Due {formatShortDate(assignment.dueAt)}
           </p>
         )}
-        <ul className="glass mx-auto mt-6 grid gap-3 rounded-xl p-4 text-left text-sm shadow-sm sm:grid-cols-3">
+        <ul className="glass-card mx-auto mt-6 grid gap-3 rounded-xl p-4 text-left text-sm shadow-sm sm:grid-cols-3">
           {["A quick warm-up", "5 questions that make you think", "A summary, then hand it in"].map((t, i) => (
             <li key={t} className="flex items-start gap-2">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-soft text-[0.6875rem] font-semibold text-primary">
