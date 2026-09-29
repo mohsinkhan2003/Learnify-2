@@ -46,6 +46,13 @@ async function moderateSafely(text: string, userId: string): Promise<{ flagged: 
   }
 }
 
+/** On the summary turn (when the session will finish), the model must supply the summary. */
+function needsSummary(plan: TurnPlan, output: TutorOutput): boolean {
+  if (plan.kind !== "summary") return false;
+  const staysOnQuestion = (!output.on_task && plan.allowOffTask) || (output.next_step === "hint" && plan.allowHint);
+  return !staysOnQuestion && (output.summary?.trim().length ?? 0) < 60;
+}
+
 export async function runTutorTurn(params: {
   userId: string;
   assignment: Assignment;
@@ -93,6 +100,11 @@ export async function runTutorTurn(params: {
     });
     output = parseTutorOutput(result.raw);
     if (!output) log.warn({ attempt }, "Tutor returned invalid structured output");
+    else if (needsSummary(plan, output)) {
+      // The summary turn must carry a real summary; otherwise ask again rather than finish without one.
+      log.warn({ attempt }, "Tutor summary turn returned no summary");
+      output = null;
+    }
   }
 
   if (!output) {

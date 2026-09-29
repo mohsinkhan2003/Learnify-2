@@ -20,7 +20,18 @@ summary → completion) but implements it in `ai/state-machine.ts`:
 - The model returns validated JSON; `applyTurn(state, plan, output)` computes the next state.
   Model suggestions outside the plan (a hint when the hint budget is spent, "not ready" outside
   readiness) are ignored.
-- The summary is forced one turn before the per-assignment turn cap, so every session can finish.
+- **Progress only moves when the student actually answered.** Greetings, small talk and mic checks
+  ("can you hear me") come back with `on_task: false`: the tutor replies and re-asks the same
+  question, and the question, hint budget and correctness counters stay unchanged. Readiness
+  allows 3 such turns, the prior-knowledge question 3; practice questions are bounded only by the
+  turn budget.
+- **Every session ends with a real summary.** On the summary turn the model returns feedback in
+  `message` and the summary in `summary`; the server rejects a summary turn without one (retry,
+  then 503 with no state change) and composes the stored message itself (feedback, "Here's a
+  summary of what we covered: …", then "press Complete"). Follow-up questions after the summary
+  receive the stored summary so the tutor can repeat it accurately.
+- The summary is forced one turn before the per-assignment turn cap, so every session can finish
+  (off-task replies are then ignored).
 - **Complete** is only possible from `READY_TO_COMPLETE`, enforced by an atomic SQL update.
 - The greeting is static text (no model call, no cost).
 
@@ -38,6 +49,8 @@ from the stage for analytics and compatibility with demo data.
 | `assessment` | `correct` · `partially_correct` · `incorrect` · `no_attempt` · `not_applicable` — stored on the message; feeds counters shown to teachers as *automated* evidence |
 | `misconception` | optional short note, shown to teachers in the transcript |
 | `safety_concern` | flags the student message for teacher review |
+| `on_task` | whether the student's message responds to the last question; `false` keeps them on it |
+| `summary` | the end-of-session summary, required on the summary turn, otherwise `null` |
 
 Invalid output → one retry with a corrective instruction → otherwise a 503 with *no state change
 and nothing stored*; the student's bubble offers **Retry** (same `clientMessageId`, idempotent).

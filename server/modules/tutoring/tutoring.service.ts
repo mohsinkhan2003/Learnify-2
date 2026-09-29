@@ -124,7 +124,7 @@ export const tutoringService = {
       };
       const planned = planTurn(state, config.ai.maxTurnsPerAssignment);
       if (!planned.ok) throw refusal[planned.reason]();
-      const plan = planned.plan;
+      const plan = { ...planned.plan, summaryText: locked.summary };
 
       const history = await tutoringRepository.listConversation(assignment.id, student.id, config.ai.contextMessages);
       const result = await runTutorTurn({ userId: student.id, assignment, history, studentMessage: input.content, plan });
@@ -157,7 +157,7 @@ export const tutoringService = {
               assignmentId: assignment.id,
               userId: student.id,
               role: "ai",
-              content: result.output.message,
+              content: outcome.message,
               stage: outcome.messageStage,
               assessment: result.output.assessment,
               misconception: result.output.misconception,

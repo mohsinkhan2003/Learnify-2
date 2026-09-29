@@ -10,7 +10,7 @@ import type { TurnPlan } from "./state-machine";
  * - Assignment fields and teacher guidance are untrusted DATA, fenced in tags and sanitised.
  * - Student messages are untrusted and only ever sent as `user` messages.
  */
-export const PROMPT_VERSION = "tutor-2026-09-v1";
+export const PROMPT_VERSION = "tutor-2026-09-v2";
 
 /** Marker used to detect system-prompt leakage in model output. Never shown to users. */
 export const LEAK_CANARY = "LNF-7Q2X-CANARY";
@@ -65,40 +65,49 @@ Always respond with a single JSON object matching the provided schema:
 - next_step: "advance", "hint" or "wait_for_readiness" as the turn instructions allow.
 - assessment: your assessment of the student's latest answer to a content question (use "not_applicable" for greetings, readiness and small talk).
 - misconception: one short sentence naming a misconception in the latest answer, or null.
-- safety_concern: true only for safeguarding concerns described above.`;
+- safety_concern: true only for safeguarding concerns described above.
+- on_task: true if the student's latest message responds to your last question (an answer, a guess, a wrong answer, or "I don't know"). false for greetings, small talk, "can you hear me", testing the microphone, off-topic chat or empty messages.
+- summary: null, except on the summary turn (see the turn instructions).`;
 }
+
+const OFF_TASK =
+  ' If the student did not respond to your question (a greeting, small talk, "can you hear me", testing the microphone, off-topic), set on_task false: reply in one short friendly sentence (for "can you hear me", say yes, you can hear them) and ask the same question again. Do not move on.';
 
 /** Per-turn instruction appended after the student's message (closest to generation). */
 export function buildTurnDirective(plan: TurnPlan): string {
   const q = (n: number | null) => `question ${n} of ${plan.totalQuestions}`;
+  const offTask = plan.allowOffTask ? OFF_TASK : "";
   switch (plan.kind) {
     case "readiness":
       return `TURN: The student just replied to your greeting. Respond briefly and warmly, introduce today's homework topic in one sentence, and ask whether they are ready to begin. next_step: "advance". assessment: "not_applicable".`;
     case "knowledge":
-      return `TURN: The student just answered whether they are ready.${
+      return `TURN: You asked whether the student is ready.${
         plan.allowNotReady
-          ? ` If they clearly say they are NOT ready, reassure them, answer any worry briefly, ask again if they are ready, and set next_step "wait_for_readiness".`
-          : ""
-      } Otherwise ask what they already know about the topic (an open question about their prior knowledge) and set next_step "advance". assessment: "not_applicable".`;
+          ? ` If they say they are NOT ready, or their reply is not an answer to that (small talk, "can you hear me", unclear), reply briefly (for "can you hear me", say yes, you can hear them), ask again if they are ready, and set next_step "wait_for_readiness" and on_task false. Only if they say they are ready (yes, ready, okay, let's go, sure):`
+          : " Now, whatever their reply:"
+      } ask what they already know about the topic (an open question about their prior knowledge), set next_step "advance" and on_task true. assessment: "not_applicable". summary: null.`;
     case "practice":
       if (plan.from === "KNOWLEDGE_CHECK") {
-        return `TURN: The student described what they already know. Acknowledge it in one sentence, gently correct any misconception, then ask guided-practice ${q(1)}: an analytical question pitched at their level. next_step: "advance". Set assessment for their prior-knowledge answer.`;
+        return `TURN: You asked what the student already knows about the topic.${offTask} If they answered (even "not much" or "I don't know" counts), set on_task true: acknowledge it in one sentence, gently correct any misconception, then ask guided-practice ${q(1)}: an analytical question pitched at their level. next_step: "advance". Set assessment for their prior-knowledge answer. summary: null.`;
       }
-      return `TURN: The student answered guided-practice ${q(plan.currentQuestion)}. Assess the answer.${
+      return `TURN: You asked guided-practice ${q(plan.currentQuestion)}.${offTask} If they attempted an answer, set on_task true and assess it.${
         plan.allowHint
           ? ` If it shows a real misunderstanding or they are stuck, give a helpful hint (not the answer) and re-ask the same question in a simpler way, with next_step "hint".`
           : " Do not give another hint on this question."
-      } Otherwise give brief specific feedback and ask ${q(plan.nextQuestion)}, which should be a different kind of analytical question (compare, explain why, apply to a real-world example, predict, evaluate), with next_step "advance".`;
+      } Otherwise give brief specific feedback (if they were wrong, briefly explain the right idea) and ask ${q(plan.nextQuestion)}, which should be a different kind of analytical question (compare, explain why, apply to a real-world example, predict, evaluate), with next_step "advance". summary: null.`;
     case "summary":
-      return `TURN: The student answered ${plan.forcedSummary ? "a" : "the final"} guided-practice question.${
-        plan.allowHint ? ` If it shows a real misunderstanding, give a hint and re-ask it with next_step "hint".` : ""
-      } Otherwise give brief feedback, then say "Here's a summary of what we covered:" and summarise in 3-4 sentences the key ideas, one real-world connection, and one thing the student did well, then tell them they can now press Complete. next_step: "advance".`;
+      return `TURN: You asked ${plan.forcedSummary ? "a" : "the final"} guided-practice question.${offTask}${
+        plan.allowHint
+          ? ` If their answer shows a real misunderstanding, give a hint, re-ask it with next_step "hint", on_task true and summary null.`
+          : ""
+      } Otherwise this is the SUMMARY turn: set on_task true and next_step "advance". message: one or two sentences of feedback on their answer only (the app adds the summary after it). summary (required, never null): 3-4 spoken sentences covering the key ideas of the topic from this session, one real-world connection, and one thing the student did well. Plain sentences, no lists, do not mention pressing Complete.`;
     case "review":
-      return `TURN: The session is finished and the summary has been given. Answer the student's follow-up briefly and accurately, staying on topic, and remind them they can press Complete when ready. next_step: "advance". assessment: "not_applicable".`;
+      return `TURN: The session is finished and this summary was given: "${sanitizeUntrusted(plan.summaryText ?? "", 1200)}". Answer the student's follow-up briefly and accurately, staying on topic. If they ask for the summary, repeat it. Remind them they can press Complete when ready. next_step: "advance". assessment: "not_applicable". on_task: true. summary: null.`;
   }
 }
 
-export const RETRY_DIRECTIVE = "Your previous reply was not valid. Respond again with ONLY a JSON object that exactly matches the schema.";
+export const RETRY_DIRECTIVE =
+  "Your previous reply was not valid. Respond again with ONLY a JSON object that exactly matches the schema and follows the turn instructions exactly. On the summary turn, the summary field must contain the 3-4 sentence summary.";
 
 export function greetingMessage(studentName: string): string {
   const first = studentName.trim().split(/\s+/)[0] || "there";

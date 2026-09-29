@@ -77,7 +77,15 @@ describe("prompt safety", () => {
 });
 
 describe("structured output validation", () => {
-  const valid = { message: "Hi", next_step: "advance", assessment: "correct", misconception: null, safety_concern: false };
+  const valid = {
+    message: "Hi",
+    next_step: "advance",
+    assessment: "correct",
+    misconception: null,
+    safety_concern: false,
+    on_task: true,
+    summary: null,
+  };
   it("accepts valid output", () => expect(parseTutorOutput(JSON.stringify(valid))).toMatchObject(valid));
   it("rejects invalid JSON, unknown enums and missing fields", () => {
     expect(parseTutorOutput("nope")).toBeNull();

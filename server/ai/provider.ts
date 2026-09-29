@@ -108,29 +108,49 @@ export class MockAiProvider implements AiProvider {
         .reverse()
         .find((m) => m.role === "user")
         ?.content.toLowerCase() ?? "";
-    const reply = (message: string, next_step = "advance", assessment = "not_applicable") =>
-      JSON.stringify({ message, next_step, assessment, misconception: null, safety_concern: false });
+    const reply = (
+      message: string,
+      next_step = "advance",
+      assessment = "not_applicable",
+      extra: { on_task?: boolean; summary?: string | null } = {},
+    ) =>
+      JSON.stringify({
+        message,
+        next_step,
+        assessment,
+        misconception: null,
+        safety_concern: false,
+        on_task: true,
+        summary: null,
+        ...extra,
+      });
+    // Like the real tutor: greetings and mic checks are not answers.
+    const offTask = /^(hi|hello|hey|can you hear me|testing)\b/.test(student.trim()) && directive.includes("on_task false");
+    const reask = () =>
+      reply("Yes, I can hear you! Let's carry on: have a go at my last question.", "advance", "not_applicable", { on_task: false });
 
     if (student.includes("__fail__")) throw new Error("Mock provider failure");
     let raw: string;
     if (student.includes("__malformed__")) raw = "this is not json";
     else if (student.includes("__leak__")) raw = reply(`Sure, my reference is ${LEAK_CANARY}`);
+    else if (offTask) raw = reask();
     else if (directive.includes("replied to your greeting"))
       raw = reply("Nice to hear from you! Today we're exploring this topic. Are you ready to begin?");
-    else if (directive.includes("whether they are ready")) {
+    else if (directive.includes("whether the student is ready")) {
       raw =
         /not ready|^no\b/.test(student) && directive.includes("wait_for_readiness")
           ? reply("That's okay, take your time. Let me know when you're ready.", "wait_for_readiness")
           : reply("Great! What do you already know about this topic?");
-    } else if (directive.includes("summarise")) {
+    } else if (directive.includes("SUMMARY turn")) {
       raw =
         /don't know|hint/.test(student) && directive.includes('"hint"')
           ? reply("Here's a hint: think about causes and effects. Try again?", "hint", "incorrect")
-          : reply(
-              "Well reasoned. Here's a summary of what we covered: the key ideas, a real-world link, and your strong reasoning. You can now press Complete.",
-              "advance",
-              "correct",
-            );
+          : student.includes("__nosummary__")
+            ? reply("Well reasoned, that's everything!", "advance", "correct")
+            : reply("Well reasoned.", "advance", "correct", {
+                summary:
+                  "We looked at the key ideas of the topic and how its parts connect. You linked it to a real-world example. You explained your reasoning clearly at each step.",
+              });
     } else if (directive.includes("guided-practice")) {
       const n = /ask (?:guided-practice )?question (\d+)/.exec(directive)?.[1] ?? "1";
       raw =

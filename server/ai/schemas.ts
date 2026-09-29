@@ -14,6 +14,10 @@ export const tutorOutputSchema = z.object({
   assessment: z.enum(ANSWER_ASSESSMENTS),
   misconception: z.string().trim().max(300).nullable(),
   safety_concern: z.boolean(),
+  /** Did the student's latest message actually respond to the tutor's last question? */
+  on_task: z.boolean(),
+  /** The end-of-session summary: required on the summary turn, otherwise null. */
+  summary: z.string().trim().max(1500).nullable(),
 });
 
 export type TutorOutput = z.infer<typeof tutorOutputSchema>;
@@ -25,7 +29,7 @@ export const tutorOutputJsonSchema = {
   schema: {
     type: "object",
     additionalProperties: false,
-    required: ["message", "next_step", "assessment", "misconception", "safety_concern"],
+    required: ["message", "next_step", "assessment", "misconception", "safety_concern", "on_task", "summary"],
     properties: {
       message: { type: "string", description: "What the tutor says to the student. Plain spoken English, no markdown." },
       next_step: {
@@ -46,6 +50,15 @@ export const tutorOutputJsonSchema = {
       safety_concern: {
         type: "boolean",
         description: "true if the student's message suggests risk of harm, distress, abuse or a safeguarding issue",
+      },
+      on_task: {
+        type: "boolean",
+        description:
+          "true if the student's latest message responds to your last question (an answer, a guess, a wrong answer or 'I don't know'); false for greetings, small talk, 'can you hear me', off-topic or empty messages",
+      },
+      summary: {
+        type: ["string", "null"],
+        description: "Only on the summary turn: 3-4 spoken sentences summarising the session. Otherwise null.",
       },
     },
   },

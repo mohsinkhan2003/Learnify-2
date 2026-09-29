@@ -103,12 +103,56 @@ describe("tutoring session", () => {
     expect(row.hintCount).toBe(2);
   });
 
+  it("does not move forward on greetings or 'can you hear me'", async () => {
+    const { student, id } = await setup();
+    await student.post(`/api/student/assignments/${id}/session`);
+    await say(student, id, "I'm good");
+    // Readiness: a mic check is not a yes.
+    let r = await say(student, id, "can you hear me");
+    expect(r.body.progress.tutorStage).toBe("READINESS_CHECK");
+    expect(r.body.tutorMessage.content).toMatch(/I can hear you/);
+    await say(student, id, "Yes I'm ready");
+    await say(student, id, "Plants use light");
+    r = await say(student, id, "Answer 1");
+    expect(r.body.progress.practiceCompleted).toBe(1);
+    // Practice: small talk keeps the same question and doesn't count as an answer.
+    for (const text of ["hi", "hello", "can you hear me"]) {
+      r = await say(student, id, text);
+      expect(r.body.progress).toMatchObject({ tutorStage: "GUIDED_PRACTICE", practiceCompleted: 1 });
+    }
+    r = await say(student, id, "Answer 2");
+    expect(r.body.progress.practiceCompleted).toBe(2);
+  });
+
+  it("never finishes without a summary: a summary turn without one is retried, not accepted", async () => {
+    const { student, id } = await setup();
+    await student.post(`/api/student/assignments/${id}/session`);
+    await say(student, id, "I'm good");
+    await say(student, id, "Yes I'm ready");
+    await say(student, id, "Plants use light");
+    for (let i = 0; i < PRACTICE_QUESTIONS - 1; i++) await say(student, id, `Answer ${i}`);
+    const missing = await student.post(`/api/student/assignments/${id}/messages`, {
+      content: "final answer __nosummary__",
+      source: "text",
+      clientMessageId: newMessageId(),
+    });
+    expect(missing.status).toBe(503);
+    expect(missing.body.error.code).toBe("AI_INVALID_RESPONSE");
+    const session = await student.get(`/api/student/assignments/${id}`);
+    expect(session.body.progress.tutorStage).toBe("GUIDED_PRACTICE");
+    const done = await say(student, id, "final answer");
+    expect(done.body.progress.tutorStage).toBe("READY_TO_COMPLETE");
+    expect(done.body.tutorMessage.content).toMatch(/Here's a summary of what we covered: .+ press Complete/);
+    expect(done.body.progress.summary).toMatch(/key ideas/);
+  });
+
   it("lets a student say they are not ready (bounded)", async () => {
     const { student, id } = await setup();
     await student.post(`/api/student/assignments/${id}/session`);
     await say(student, id, "hi");
     const r = await say(student, id, "not ready");
     expect(r.body.progress.tutorStage).toBe("READINESS_CHECK");
+    await say(student, id, "not ready");
     await say(student, id, "not ready");
     const forced = await say(student, id, "not ready");
     expect(forced.body.progress.tutorStage).toBe("KNOWLEDGE_CHECK");

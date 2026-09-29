@@ -53,6 +53,10 @@ function chunk(text: string): string[] {
 let generation = 0;
 let unlocked = false;
 
+const isTouchDevice = () =>
+  (typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches) ||
+  /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
 /**
  * Phones (Chrome on Android, Safari on iOS) only allow speech once it has been started directly
  * inside a tap. The tutor's replies arrive after a network round trip, outside the tap, so call
@@ -60,7 +64,8 @@ let unlocked = false;
  * silent utterance once, which unlocks speech for the rest of the page's life.
  */
 export function unlockSpeech(): void {
-  if (unlocked || !speechSynthesisSupported()) return;
+  // Desktop browsers don't need this, and a silent utterance there can linger in the queue.
+  if (unlocked || !speechSynthesisSupported() || !isTouchDevice()) return;
   unlocked = true;
   const synth = window.speechSynthesis;
   synth.getVoices(); // starts async voice loading on engines that load lazily
@@ -73,9 +78,14 @@ export async function speakText(text: string, pref: VoicePreference): Promise<vo
   if (!speechSynthesisSupported()) return;
   const synth = window.speechSynthesis;
   const my = ++generation;
-  // iOS drops an utterance queued right after cancel() on an idle engine, so only cancel if busy.
-  if (synth.speaking || synth.pending) synth.cancel();
-  synth.resume(); // Chrome on Android can leave the engine paused after the page was backgrounded
+  // iOS drops an utterance queued right after cancel() on an idle engine, so only cancel if busy;
+  // Chrome drops one queued immediately after a real cancel(), so give the engine a moment.
+  if (synth.speaking || synth.pending) {
+    synth.cancel();
+    await new Promise((r) => setTimeout(r, 120));
+    if (my !== generation) return;
+  }
+  if (synth.paused) synth.resume(); // Chrome on Android can leave the engine paused after backgrounding
   const voice = pickVoice(await loadVoices(), pref);
   for (const sentence of chunk(text)) {
     if (my !== generation) return; // interrupted
