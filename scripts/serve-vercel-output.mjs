@@ -2,6 +2,7 @@
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import zlib from "node:zlib";
 
 const root = path.resolve(import.meta.dirname, "../.vercel/output");
 const config = JSON.parse(fs.readFileSync(path.join(root, "config.json"), "utf8"));
@@ -43,7 +44,13 @@ http
       return handler(req, res);
     }
     const file = path.join(root, "static", dest ?? "/index.html");
-    res.setHeader("Content-Type", types[path.extname(file)] ?? "application/octet-stream");
+    const type = types[path.extname(file)] ?? "application/octet-stream";
+    res.setHeader("Content-Type", type);
+    // Like Vercel's CDN: compress text assets.
+    if (/text|javascript|json|svg/.test(type) && /\bbr\b/.test(req.headers["accept-encoding"] ?? "")) {
+      res.setHeader("Content-Encoding", "br");
+      return fs.createReadStream(file).pipe(zlib.createBrotliCompress()).pipe(res);
+    }
     fs.createReadStream(file).pipe(res);
   })
   .listen(Number(process.env.PORT ?? 3000), () => console.log("serving .vercel/output"));
