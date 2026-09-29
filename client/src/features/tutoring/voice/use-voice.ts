@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import type { TranscriptionResult } from "@shared/api";
-import { speakText, stopSpeaking, speechSynthesisSupported, type VoicePreference } from "./speech";
+import { speakText, stopSpeaking, speechSynthesisSupported, unlockSpeech, type VoicePreference } from "./speech";
 
 /**
  * Voice conversation state machine.
@@ -36,6 +36,30 @@ function getRecognitionCtor(): SpeechRecognitionCtor | null {
 function pickRecorderMime(): string | undefined {
   const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
   return candidates.find((m) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported?.(m));
+}
+
+/**
+ * Phones and tablets. There, speech recognition must own the microphone: opening it a second
+ * time for the level meter makes Android recognition hear nothing, and makes iOS route the
+ * tutor's voice to the quiet earpiece afterwards.
+ */
+function isTouchDevice(): boolean {
+  return (
+    (typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches) ||
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+  );
+}
+
+/** Rebuilds the transcript from every result so far (robust to engines that repeat or revise results). */
+export function readTranscript(results: SpeechRecognitionResultList): { final: string; draft: string } {
+  let final = "";
+  let live = "";
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    if (r.isFinal) final += `${r[0].transcript} `;
+    else live += r[0].transcript;
+  }
+  return { final: final.trim(), draft: `${final}${live}`.trim() };
 }
 
 const SILENCE_MS = 1600;
@@ -189,6 +213,7 @@ export function useVoice({ onUtterance, transcriptionEnabled, maxSeconds }: Opti
   const speak = useCallback(
     async (text: string) => {
       if (!prefsRef.current.speechOn || !speechSynthesisSupported()) return;
+      unlockSpeech(); // no-op after the first tap; makes the "Listen" button itself an unlock
       setStatus("speaking");
       await speakText(text, prefsRef.current.voice);
       if (statusRef.current === "speaking") setStatus("idle");
@@ -197,7 +222,7 @@ export function useVoice({ onUtterance, transcriptionEnabled, maxSeconds }: Opti
   );
 
   // Forward declaration so finish() can loop back into listening.
-  const startListeningRef = useRef<() => Promise<void>>(async () => {});
+  const startListeningRef = useRef<(auto?: boolean) => Promise<void>>(async () => {});
 
   const finish = useCallback(
     async (text: string) => {
@@ -221,7 +246,7 @@ export function useVoice({ onUtterance, transcriptionEnabled, maxSeconds }: Opti
       // The student may have interrupted (tapped the mic) or cancelled while the tutor spoke.
       if (statusRef.current !== "idle" && statusRef.current !== "thinking") return;
       if (activeRef.current && prefsRef.current.handsFree && document.visibilityState === "visible") {
-        await startListeningRef.current();
+        await startListeningRef.current(true);
       } else {
         activeRef.current = false;
         setStatus("idle");
@@ -230,73 +255,89 @@ export function useVoice({ onUtterance, transcriptionEnabled, maxSeconds }: Opti
     [setStatus, speak, teardownCapture],
   );
 
-  const listenWithSpeechApi = useCallback(async () => {
-    const Ctor = getRecognitionCtor()!;
-    const stream = await openMic();
-    if (!stream) return;
-    const rec = new Ctor();
-    recognitionRef.current = rec;
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = navigator.language?.startsWith("en") ? navigator.language : "en-US";
-    let finalText = "";
-    let restarts = 0;
+  const listenWithSpeechApi = useCallback(
+    async (auto: boolean) => {
+      const Ctor = getRecognitionCtor()!;
+      const touch = isTouchDevice();
+      if (!touch && !(await openMic())) return;
+      const rec = new Ctor();
+      recognitionRef.current = rec;
+      // Continuous mode misbehaves on Android (repeated phrases, results that never become final);
+      // one utterance per turn is what phones handle reliably.
+      rec.continuous = !touch;
+      rec.interimResults = true;
+      rec.lang = navigator.language?.startsWith("en") ? navigator.language : "en-US";
+      let finalText = "";
+      let draftText = "";
+      let restarts = 0;
+      // Without our own mic stream on phones, animate the level from recognition events.
+      const pulse = (l: number) => touch && setLevel(l);
 
-    const scheduleFinish = () => {
-      clearTimers();
-      timersRef.current.push(window.setTimeout(() => finish(finalText), SILENCE_MS));
-    };
-    timersRef.current.push(window.setTimeout(() => finish(finalText), maxSeconds * 1000));
+      const scheduleFinish = () => {
+        clearTimers();
+        timersRef.current.push(window.setTimeout(() => finish(finalText || draftText), SILENCE_MS));
+      };
+      timersRef.current.push(window.setTimeout(() => finish(finalText || draftText), maxSeconds * 1000));
 
-    rec.onresult = (event: SpeechRecognitionEvent) => {
-      let live = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const r = event.results[i];
-        if (r.isFinal) finalText += `${r[0].transcript} `;
-        else live += r[0].transcript;
-      }
-      setInterim((finalText + live).trim());
-      if (finalText.trim()) scheduleFinish();
-    };
-    rec.onerror = (event: SpeechRecognitionErrorEvent) => {
-      if (event.error === "aborted") return;
-      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+      rec.onspeechstart = () => pulse(0.6);
+      rec.onspeechend = () => pulse(0.1);
+      rec.onresult = (event: SpeechRecognitionEvent) => {
+        const t = readTranscript(event.results);
+        finalText = t.final;
+        draftText = t.draft;
+        setInterim(draftText);
+        pulse(0.4 + Math.random() * 0.5);
+        if (finalText) scheduleFinish();
+      };
+      rec.onerror = (event: SpeechRecognitionErrorEvent) => {
+        if (event.error === "aborted" || event.error === "no-speech") return; // handled in onend
         teardownCapture();
         activeRef.current = false;
-        setStatus("denied");
-      } else if (event.error === "no-speech") {
-        // Handled in onend (restart or give up)
-      } else {
-        teardownCapture();
-        activeRef.current = false;
-        setHint(
-          event.error === "network"
-            ? "Voice recognition needs an internet connection. You can type instead."
-            : "Voice input stopped unexpectedly. Tap the microphone to try again.",
-        );
-        setStatus("error");
-      }
-    };
-    rec.onend = () => {
-      if (recognitionRef.current !== rec || statusRef.current !== "listening") return;
-      if (finalText.trim()) return finish(finalText);
-      // Browsers end recognition after a stretch of silence; restart a couple of times.
-      if (restarts++ < 2) {
-        try {
-          rec.start();
+        if ((event.error === "not-allowed" || event.error === "service-not-allowed") && !auto) {
+          setStatus("denied");
           return;
-        } catch {
-          /* fall through */
         }
+        setHint(
+          auto
+            ? "Tap the microphone to answer."
+            : event.error === "network"
+              ? "Voice recognition needs an internet connection. You can type instead."
+              : "Voice input stopped unexpectedly. Tap the microphone to try again.",
+        );
+        setStatus(auto ? "idle" : "error");
+      };
+      rec.onend = () => {
+        if (recognitionRef.current !== rec || statusRef.current !== "listening") return;
+        // Phones often end with only a draft transcript and no final one: use what was heard.
+        const heard = (finalText || draftText).trim();
+        if (heard) return finish(heard);
+        // Browsers end recognition after a stretch of silence; restart a couple of times.
+        if (restarts++ < 2) {
+          try {
+            rec.start();
+            return;
+          } catch {
+            /* fall through */
+          }
+        }
+        teardownCapture();
+        activeRef.current = false;
+        setHint("We didn't hear anything — tap the microphone when you're ready.");
+        setStatus("idle");
+      };
+      setStatus("listening");
+      try {
+        rec.start();
+      } catch {
+        // Some phones refuse to start recognition without a fresh tap (hands-free restart).
+        teardownCapture();
+        activeRef.current = false;
+        setHint("Tap the microphone to answer.");
+        setStatus("idle");
       }
-      teardownCapture();
-      activeRef.current = false;
-      setHint("We didn't hear anything — tap the microphone when you're ready.");
-      setStatus("idle");
-    };
-    setStatus("listening");
-    rec.start();
-  }, [finish, maxSeconds, openMic, setStatus, teardownCapture]);
+    },
+    [finish, maxSeconds, openMic, setStatus, teardownCapture],
+  );
 
   const listenWithRecorder = useCallback(async () => {
     let heard = false;
@@ -343,17 +384,22 @@ export function useVoice({ onUtterance, transcriptionEnabled, maxSeconds }: Opti
     recorder.start(250);
   }, [finish, maxSeconds, openMic, releaseMic, setStatus]);
 
-  const startListening = useCallback(async () => {
-    if (!mode) return;
-    stopSpeaking();
-    teardownCapture();
-    setHint(null);
-    setInterim("");
-    activeRef.current = true;
-    setStatus("requesting");
-    if (mode === "speech") await listenWithSpeechApi();
-    else await listenWithRecorder();
-  }, [listenWithRecorder, listenWithSpeechApi, mode, setStatus, teardownCapture]);
+  /** `auto` = hands-free restart after the tutor spoke (not a tap). */
+  const startListening = useCallback(
+    async (auto = false) => {
+      if (!mode) return;
+      if (!auto) unlockSpeech(); // inside the tap: lets the tutor's reply be spoken on phones
+      stopSpeaking();
+      teardownCapture();
+      setHint(null);
+      setInterim("");
+      activeRef.current = true;
+      setStatus("requesting");
+      if (mode === "speech") await listenWithSpeechApi(auto);
+      else await listenWithRecorder();
+    },
+    [listenWithRecorder, listenWithSpeechApi, mode, setStatus, teardownCapture],
+  );
   startListeningRef.current = startListening;
 
   /** Ends the current utterance early (sends what was said so far). */

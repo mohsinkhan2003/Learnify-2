@@ -51,12 +51,31 @@ function chunk(text: string): string[] {
 }
 
 let generation = 0;
+let unlocked = false;
+
+/**
+ * Phones (Chrome on Android, Safari on iOS) only allow speech once it has been started directly
+ * inside a tap. The tutor's replies arrive after a network round trip, outside the tap, so call
+ * this synchronously from every tap that can lead to speech (mic, start, listen). It speaks a
+ * silent utterance once, which unlocks speech for the rest of the page's life.
+ */
+export function unlockSpeech(): void {
+  if (unlocked || !speechSynthesisSupported()) return;
+  unlocked = true;
+  const synth = window.speechSynthesis;
+  synth.getVoices(); // starts async voice loading on engines that load lazily
+  const u = new SpeechSynthesisUtterance(" ");
+  u.volume = 0;
+  synth.speak(u);
+}
 
 export async function speakText(text: string, pref: VoicePreference): Promise<void> {
   if (!speechSynthesisSupported()) return;
   const synth = window.speechSynthesis;
   const my = ++generation;
-  synth.cancel();
+  // iOS drops an utterance queued right after cancel() on an idle engine, so only cancel if busy.
+  if (synth.speaking || synth.pending) synth.cancel();
+  synth.resume(); // Chrome on Android can leave the engine paused after the page was backgrounded
   const voice = pickVoice(await loadVoices(), pref);
   for (const sentence of chunk(text)) {
     if (my !== generation) return; // interrupted

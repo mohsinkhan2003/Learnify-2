@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { Composer, MessageList, TutorAvatar } from "./conversation";
 import { useTutorSession } from "./use-tutor-session";
 import { useVoice } from "./voice/use-voice";
+import { unlockSpeech } from "./voice/speech";
 import { MicDeniedHelp, SpeakerToggle, VoiceButton, voiceStatusText } from "./voice/voice-control";
 
 function StageSteps({ session }: { session: TutorSessionDto }) {
@@ -198,6 +199,7 @@ export default function TutorSessionPage() {
   const voiceAvailable = voice.status !== "unsupported";
 
   const handleStart = (withVoice: boolean) => {
+    if (withVoice) unlockSpeech(); // must happen inside the tap for phones to allow speech later
     start.mutate(undefined, {
       onSuccess: async (fresh) => {
         const greeting = [...fresh.messages].reverse().find((m) => m.role === "ai")?.content;
@@ -313,9 +315,9 @@ export default function TutorSessionPage() {
                           size="md"
                           status={voice.status}
                           level={voice.level}
-                          onStart={() => voice.startListening()}
+                          onStart={() => void voice.startListening()}
                           onStop={voice.stopListening}
-                          onInterrupt={() => voice.startListening()}
+                          onInterrupt={() => void voice.startListening()}
                         />
                       )}
                       <Composer
